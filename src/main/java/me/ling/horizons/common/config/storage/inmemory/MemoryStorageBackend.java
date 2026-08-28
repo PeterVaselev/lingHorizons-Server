@@ -11,7 +11,6 @@ import me.ling.horizons.common.config.storage.StorageConfig;
 import me.ling.horizons.common.util.MemoryBuffer;
 import net.minecraft.world.level.levelgen.RandomSupport;
 import org.apache.commons.lang3.stream.Streams;
-import org.lwjgl.system.MemoryUtil;
 
 import java.nio.ByteBuffer;
 import java.util.function.LongConsumer;
@@ -25,24 +24,16 @@ public class MemoryStorageBackend extends StorageBackend {
         this(4);
     }
 
-    private Long2ObjectMap<MemoryBuffer> getMap(long key) {
-        return this.maps[(int) (RandomSupport.mixStafford13(RandomSupport.mixStafford13(key)^key)&(this.maps.length-1))];
-    }
-
-    @Override
-    public void iterateStoredSectionPositions(LongConsumer consumer) {
-        for (var map : this.maps) {
-            synchronized (map) {
-                map.keySet().forEach(consumer);
-            }
-        }
-    }
-
-    public MemoryStorageBackend(int slicesBitCount) {
-        this.maps = new Long2ObjectMap[1<<slicesBitCount];
-        for (int i = 0; i < this.maps.length; i++) {
+    @SuppressWarnings("unchecked")
+    public MemoryStorageBackend(int locks) {
+        this.maps = new Long2ObjectMap[locks];
+        for (int i = 0; i < locks; i++) {
             this.maps[i] = new Long2ObjectOpenHashMap<>();
         }
+    }
+
+    private Long2ObjectMap<MemoryBuffer> getMap(long key) {
+        return this.maps[(int) Math.abs(RandomSupport.mixStafford13(key)%this.maps.length)];
     }
 
     @Override
@@ -55,6 +46,15 @@ public class MemoryStorageBackend extends StorageBackend {
                 return scratch.subSize(data.size);
             } else {
                 return null;
+            }
+        }
+    }
+
+    @Override
+    public void iterateStoredSectionPositions(LongConsumer consumer) {
+        for (var map : this.maps) {
+            synchronized (map) {
+                map.keySet().forEach(consumer);
             }
         }
     }
@@ -85,12 +85,10 @@ public class MemoryStorageBackend extends StorageBackend {
     @Override
     public void putIdMapping(int id, ByteBuffer data) {
         synchronized (this.idMappings) {
-            var cpy = MemoryUtil.memAlloc(data.remaining());
-            MemoryUtil.memCopy(data, cpy);
-            var prev = this.idMappings.put(id, cpy);
-            if (prev != null) {
-                MemoryUtil.memFree(prev);
-            }
+            byte[] bytes = new byte[data.remaining()];
+            data.get(bytes);
+            data.rewind();
+            this.idMappings.put(id, ByteBuffer.wrap(bytes));
         }
     }
 
@@ -104,8 +102,8 @@ public class MemoryStorageBackend extends StorageBackend {
                 entry.getValue().rewind();
                 out.put(entry.getIntKey(), buf);
             }
-            return out;
         }
+        return out;
     }
 
     @Override
@@ -116,7 +114,7 @@ public class MemoryStorageBackend extends StorageBackend {
     @Override
     public void close() {
         Streams.of(this.maps).map(Long2ObjectMap::values).flatMap(ObjectCollection::stream).forEach(MemoryBuffer::free);
-        this.idMappings.values().forEach(MemoryUtil::memFree);
+        this.idMappings.clear();
     }
 
     public static class Config extends StorageConfig {

@@ -57,34 +57,17 @@ neoForge {
     }
 }
 
-project.ext.lwjglVersion = "3.3.3"
-
 dependencies {
-    // LWJGL Platform & ZSTD Compression
-    implementation platform("org.lwjgl:lwjgl-bom:$lwjglVersion")
-    jarJar(implementation("org.lwjgl:lwjgl:$lwjglVersion")) {
-        version { strictly "[3.3.0,4.0.0)"; prefer "$lwjglVersion" }
-    }
-    jarJar(implementation("org.lwjgl:lwjgl-zstd:$lwjglVersion")) {
-        version { strictly "[3.3.0,4.0.0)"; prefer "$lwjglVersion" }
-    }
-    additionalRuntimeClasspath "org.lwjgl:lwjgl:$lwjglVersion"
-    additionalRuntimeClasspath "org.lwjgl:lwjgl:$lwjglVersion:natives-windows"
-    additionalRuntimeClasspath "org.lwjgl:lwjgl:$lwjglVersion:natives-linux"
-    additionalRuntimeClasspath "org.lwjgl:lwjgl-zstd:$lwjglVersion"
-    additionalRuntimeClasspath "org.lwjgl:lwjgl-zstd:$lwjglVersion:natives-windows"
-    additionalRuntimeClasspath "org.lwjgl:lwjgl-zstd:$lwjglVersion:natives-linux"
-
     // High-Speed Master RocksDB Storage
     jarJar(implementation('org.rocksdb:rocksdbjni')) {
         version {
-            strictly '[10.0.0, 11.0.0)'
-            prefer '10.2.1'
+            strictly '10.2.1'
         }
     }
 
-    // LZ4 Compression
-    implementation 'org.lz4:lz4-java:1.8.0'
+    // LZ4 Fast Infallible Compression (already provided by Minecraft module layer / other mods)
+    compileOnly 'org.lz4:lz4-java:1.8.0'
+    additionalRuntimeClasspath 'org.lz4:lz4-java:1.8.0'
 
     // MixinExtras for NeoForge bytecode injection
     compileOnly 'io.github.llamalad7:mixinextras-common:0.4.1'

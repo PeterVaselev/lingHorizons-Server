@@ -1,5 +1,6 @@
 package me.ling.horizons.common.thread;
 
+import me.ling.horizons.common.Logger;
 import me.ling.horizons.common.util.Pair;
 
 import java.util.ArrayList;
@@ -28,13 +29,14 @@ public class UnifiedServiceThreadPool {
 
     public boolean setNumThreads(int threads) {
         synchronized (this.threads) {
+            this.threads.removeIf(t -> !t.isAlive());
             int diff = threads - this.threads.size();
-            if (diff==0) return false;//Already correct
-            if (diff<0) {//Remove threads
+            if (diff == 0) return false;
+            if (diff < 0) {
                 this.selfBlock.release(-diff);
-            } else {//Add threads
+            } else {
                 for (int i = 0; i < diff; i++) {
-                    var t = new Thread(this.dedicatedPool, this::workerThread, "Dedicated Voxy Worker #"+(this.threadId++));
+                    var t = new Thread(this.dedicatedPool, this::workerThread, "Dedicated Voxy Worker #" + (this.threadId++));
                     t.setPriority(3);
                     t.setDaemon(true);
                     this.threads.add(t);
@@ -42,43 +44,67 @@ public class UnifiedServiceThreadPool {
                 }
             }
         }
-        while (true) {
+        long timeout = System.currentTimeMillis() + 500;
+        while (System.currentTimeMillis() < timeout) {
             synchronized (this.threads) {
+                this.threads.removeIf(t -> !t.isAlive());
                 if (this.threads.size() == threads) return true;
             }
             try {
                 Thread.sleep(50);
             } catch (InterruptedException e) {
-                throw new RuntimeException(e);
+                break;
             }
         }
+        return true;
     }
 
     private void workerThread() {
-        this.selfBlock.acquire();//This is stupid but it works
-
-        //We are exiting, remove self from list of threads
-        synchronized (this.threads) {
-            this.threads.remove(Thread.currentThread());
+        try {
+            this.selfBlock.acquire();
+        } catch (Throwable t) {
+            Logger.error("Exception in worker thread: " + Thread.currentThread().getName(), t);
+        } finally {
+            synchronized (this.threads) {
+                this.threads.remove(Thread.currentThread());
+            }
         }
     }
 
     public void shutdown() {
         this.serviceManager.shutdown();
         this.selfBlock.release(10000);
-        while (true) {
+
+        synchronized (this.threads) {
+            for (Thread t : this.threads) {
+                if (t != null && t.isAlive()) {
+                    t.interrupt();
+                }
+            }
+        }
+
+        long deadline = System.currentTimeMillis() + 500;
+        while (System.currentTimeMillis() < deadline) {
             synchronized (this.threads) {
+                this.threads.removeIf(t -> !t.isAlive());
                 if (this.threads.isEmpty()) {
                     break;
                 }
             }
             try {
-                Thread.sleep(100);
+                Thread.sleep(50);
             } catch (InterruptedException e) {
-                throw new RuntimeException(e);
+                break;
             }
         }
-        this.selfBlock.free();
+
+        synchronized (this.threads) {
+            this.threads.clear();
+        }
+
+        try {
+            this.selfBlock.free();
+        } catch (Exception ignored) {}
     }
 
 

@@ -1,83 +1,83 @@
-# 🌐 LING Horizons Server (The Ultimate LOD Streaming Engine)
-### ⚡ Dedicated Server Voxel LOD Streaming & Intelligent Chunky Auto-Bridge for NeoForge 1.21.1
+# LING Horizons Server (The Ultimate LOD Streaming Engine)
+### Dedicated Server Voxel LOD Streaming & Intelligent Chunky Auto-Bridge for NeoForge 1.21.1
 
 ![LING Horizons Server](logo2.png)
 
 ---
 
-## 🌟 ภาพรวมโปรเจกต์ (Overview)
+## Project Overview
 
-**LING Horizons Server** คือม็อดฝั่ง **Dedicated Server** สำหรับ Minecraft 1.21.1 (NeoForge) ที่ทำหน้าที่เป็นศูนย์กลางประมวลผล **Master Voxel DAG Engine** บันทึกและสตรีมข้อมูลภูมิประเทศความละเอียดสูง (LOD) สู่ผู้เล่นที่ติดตั้ง **LING Horizons Client**:
+**LING Horizons Server** is a **Dedicated Server** mod for Minecraft 1.21.1 (NeoForge). It operates as a centralized **Master Voxel DAG Engine**, persistently indexing, caching, and streaming high-resolution Level-of-Detail (LOD) terrain data to connected players running the **LING Horizons Client**:
 
-- **🔍 Smart Auto-Detect & Resume (ตรวจจับงานปั่นเดิมและทำต่ออัตโนมัติ)**:
-  - ตรวจจับไฟล์งานปั่นแมพเดิมของ Chunky (`config/chunky/tasks/`) บนดิสก์ หากพบว่ามีงานเก่าที่บันทึกค้างไว้ ระบบจะสั่ง `/chunky continue` ให้เองอัตโนมัติทันที เพื่อป้องกันปัญหา Chunky หยุดรอถามแอดมินใน Console
-- **🚀 Auto-Start Chunky on Boot (สั่งเปิดปั่น Chunk อัตโนมัติตอนเปิดเซิร์ฟ)**:
-  - หากไม่มีงานเก่าค้างอยู่ ระบบจะรันชุดคำสั่งของ Chunky ตามรายการที่กำหนดไว้ใน Config (เช่น shape, center, radius, start)
-- **🤖 Built-in Chunky Auto-Bridge (ระบบบริหาร Chunky อัจฉริยะ)**:
-  - **เมื่อมีผู้เล่นเข้าเกม (>= 1 คน)**: สั่ง `chunky pause` อัตโนมัติทันที 100% เพื่อคืน CPU / RAM ให้ผู้เล่นเล่นได้ลื่นไหลที่สุด (TPS 20.00 นิ่งสนิท)
-  - **เมื่อเซิร์ฟเวอร์ว่าง (0 คน)**: สั่ง `chunky resume` อัตโนมัติทันที เพื่อใช้เวลาว่างสร้างโลกและทำ Voxel LOD ต่อเนื่อง
-- **🌅 Hierarchical Radial Streaming (เห็นขอบฟ้าทันที ไร้รอยโหว่)**:
-  - ส่งภาพรวมขอบฟ้าหยาบ (**Coarse LOD 4 & 3**) ก่อนทันที (~15–30 KB) ป้องกันปัญหาช่องว่างโปร่งใสหรือมองทะลุโลก (No See-through Void)
-  - ส่งรายละเอียดใกล้ตัว (**Fine LOD 2, 1, 0**) เรียงตามระยะวงกลมจากใกล้ตัวผู้เล่นที่สุดออกไปรอบนอก
-- **🛡️ Adaptive Token-Bucket Bandwidth Limiter**:
-  - จำกัดอัตราการส่งข้อมูลไม่ให้เกินค่าคอนฟิก (ค่าเริ่มต้น 50 KB/s ต่อผู้เล่น) ทำให้ **Ping ของผู้เล่นนิ่งสนิท (<30ms)** แม้จะบินสำรวจด้วยความเร็วสูง
-- **⚡ Fast Non-Blocking Graceful Shutdown**:
-  - ปิดตัวลงได้อย่างรวดเร็วใน **0.1 วินาที** เมื่อสั่ง `/stop` พร้อมบันทึก Flush ฐานข้อมูล RocksDB ลง SSD อย่างปลอดภัย 100%
-- **🤝 Vanilla & Multi-Mod Friendly**:
-  - ผู้เล่นที่ไม่มี LING Horizons สามารถเข้าเล่นเซิร์ฟเวอร์ได้ตามปกติ ไม่บังคับติดตั้ง
+- **Smart Auto-Detect & Resume**:
+  - Automatically scans for unfinished Chunky pre-generation tasks on disk (`config/chunky/tasks/`). If an existing task is detected, it automatically issues `/chunky continue` to seamlessly resume generation without blocking the console for manual confirmation.
+- **Auto-Start Chunky on Boot**:
+  - If no prior task exists, the server automatically executes preconfigured Chunky commands (e.g., shape, center, radius, start) after a configurable startup delay.
+- **Built-in Chunky Auto-Bridge**:
+  - **Active Players (>= 1 online)**: Automatically triggers `chunky pause` to yield 100% of CPU/RAM to players, maintaining a rock-solid **20.00 TPS**.
+  - **Empty Server (0 online)**: Automatically triggers `chunky resume` to utilize server idle time for continuous chunk pre-generation and Voxel LOD baking.
+- **Hierarchical Radial Streaming (Instant Horizon, Zero Void)**:
+  - Immediately transmits coarse horizon data (**Coarse LOD 4 & 3**, ~15–30 KB) upon join/teleport to eliminate see-through void and empty gaps.
+  - Progressively streams high-fidelity detail (**Fine LOD 2, 1, 0**) sorted radially from the player's position outwards.
+- **Adaptive Token-Bucket Bandwidth Limiter**:
+  - Regulates packet throughput per player (default 50 KB/s) to prevent network congestion, ensuring **stable player ping (<30ms)** even during high-speed exploration.
+- **Fast Non-Blocking Graceful Shutdown**:
+  - Shuts down in **~0.1 seconds** on `/stop` while safely and cleanly flushing RocksDB database caches to disk.
+- **Vanilla & Multi-Mod Friendly**:
+  - Players without the LING Horizons Client can still join and play normally without being forced to install the mod.
 
 ---
 
-## ⚙️ การตั้งค่าคอนฟิก (`config/ling_horizons-server.toml`)
+## ⚙️ Configuration (`config/ling_horizons-server.toml`)
 
-ไฟล์คอนฟิกจะถูกสร้างขึ้นอัตโนมัติใน `config/ling_horizons-server.toml`:
+The configuration file is automatically generated at `config/ling_horizons-server.toml`:
 
 ```toml
 # ==============================================================================
 # LING Horizons Server Configuration
 # ==============================================================================
 
-# เปิด/ปิดระบบสตรีม LOD ให้กับผู้เล่นที่เชื่อมต่อเข้ามา
+# Enable or disable the LOD streaming subsystem for connected players
 streamingEnabled = true
 
-# รัศมีการส่งข้อมูล LOD สูงสุดให้ผู้เล่นแต่ละคน (หน่วยเป็นชังก์)
-# 64 Chunks  = 1,024 บล็อกรอบตัว
-# 128 Chunks = 2,048 บล็อก (ค่าแนะนำสำหรับเซิร์ฟเวอร์ทั่วไป)
-# 256 Chunks = 4,096 บล็อก (สำหรับเซิร์ฟเวอร์สเปกสูง)
+# Maximum LOD streaming radius per player (in chunks)
+# 64 Chunks  = 1,024 blocks radius
+# 128 Chunks = 2,048 blocks (Recommended for standard servers)
+# 256 Chunks = 4,096 blocks (For high-spec dedicated servers)
 maxStreamingRadiusChunks = 128
 
-# จำกัดความเร็วการส่งข้อมูลต่อผู้เล่น 1 คน (หน่วยเป็น KB/s) ป้องกัน Ping พุ่ง
+# Bandwidth throttle limit per player (in KB/s) to prevent network lag/ping spikes
 maxBandwidthPerPlayerKB = 50
 
-# จำนวน Background Worker Threads สำหรับการสตรีม LOD ตอนมีผู้เล่นออนไลน์
+# Number of background worker threads dedicated to LOD streaming during active gameplay
 streamingWorkerThreads = 2
 
-# สลับโหมดอัตโนมัติ (Dynamic Workload Scheduler) ตามสถานะผู้เล่น
+# Enable dynamic workload scheduling based on player activity
 adaptiveWorkloadEnabled = true
 
-# จำนวน Worker Threads สำหรับเร่งเจน Voxel ตอนเซิร์ฟเวอร์ว่าง (0 คน)
+# Number of worker threads allocated for accelerated voxel generation when server is idle (0 players)
 offlineBoostThreads = 4
 
-# เปิด/ปิดระบบหยุด Chunky อัตโนมัติเมื่อมีคนเล่น และเริ่มต่อเมื่อคนออกหมด
+# Enable or disable automatic Chunky management (pause on player join, resume on empty)
 autoManageChunky = true
 
-# ซ่อนข้อความแจ้งเตือนสถานะ Chunky Auto-Bridge ใน Console
+# Suppress Chunky Auto-Bridge status notices in the console
 silentChunkyBridgeLogs = false
 
 # ------------------------------------------------------------------------------
-# 🚀 ระบบเปิด Chunky อัตโนมัติตอนเปิดเซิร์ฟเวอร์ (Auto-Start Chunky on Boot)
+# Auto-Start Chunky on Boot
 # ------------------------------------------------------------------------------
 
-# เปิด/ปิดการรันชุดคำสั่ง Chunky อัตโนมัติเมื่อเซิร์ฟเวอร์บูตเสร็จสิ้น
+# Enable or disable running Chunky command sequences automatically after server boots
 autoStartChunkyOnBoot = true
 
-# 🔍 ตรวจจับงานปั่นเดิมที่บันทึกค้างไว้บนดิสก์ และสั่ง '/chunky continue' ให้อัตโนมัติ (ข้ามการถามยืนยัน)
+# Auto-detect saved tasks on disk and execute '/chunky continue' (bypassing confirmation prompts)
 autoDetectExistingTask = true
 
-# ระยะเวลารอ (วินาที) หลังเซิร์ฟเวอร์เปิดเสร็จ ก่อนเริ่มรันคำสั่ง (ให้ม็อดอื่นโหลดเสร็จสมบูรณ์)
+# Delay in seconds after server startup before executing commands (allows other mods to finish loading)
 autoStartDelaySeconds = 10
 
-# รายการคำสั่งของ Chunky ที่ต้องการให้เซิร์ฟเวอร์รันเรียงตามลำดับ (กรณีไม่มีงานเก่าค้างอยู่)
+# List of Chunky commands to execute sequentially on boot (when no existing task is pending)
 autoStartCommands = [
     "chunky shape circle",
     "chunky center 0 0",
@@ -88,23 +88,23 @@ autoStartCommands = [
 
 ---
 
-## 📊 ตารางเปรียบเทียบโหมดการทำงาน (Adaptive Workload)
+## Adaptive Workload Modes
 
-| สถานะเซิร์ฟเวอร์ | โหมดการทำงาน | การจัดสรรทรัพยากร | พฤติกรรมของ Chunky |
+| Server State | Operating Mode | Resource Allocation | Chunky Behavior |
 | :--- | :--- | :--- | :--- |
-| **มีผู้เล่นออนไลน์ (>= 1 คน)** | 🎮 `ACTIVE GAMEPLAY MODE` | 2 Threads (เน้นสตรีม LOD & คุม Bandwidth) | 🛑 **Paused** (หยุด 100% เพื่อ TPS 20.00) |
-| **เซิร์ฟเวอร์ว่าง (0 คน)** | 🚀 `OFFLINE BOOST MODE` | 4 Threads (เร่งความเร็ว Voxel Ingest 4x) | ▶️ **Resumed** (ปั๊มแมพและทำ LOD ต่อเนื่อง) |
+| **Players Online (>= 1)** |  `ACTIVE GAMEPLAY MODE` | 2 Threads (Prioritizes streaming & strict bandwidth throttle) |  **Paused** (100% pause for stable 20.00 TPS) |
+| **Server Empty (0)** |  `OFFLINE BOOST MODE` | 4 Threads (4x faster Voxel Ingestion & Baking) | ▶ **Resumed** (Continuously pre-generates chunks & LODs) |
 
 ---
 
-## 🧩 โครงสร้างการจับคู่ม็อด (Client & Server Pair)
+## 🧩 Architecture: Client & Server Pair
 
-| ฝั่ง | ม็อดที่ใช้งาน | ตำแหน่งติดตั้ง | หน้าที่ |
+| Side | Mod Archive | Installation Target | Role / Responsibilities |
 | :--- | :--- | :--- | :--- |
-| 💻 **Client** | `lingHorizons-V1-1.0.1.jar` | โฟลเดอร์ `mods/` ของผู้เล่น | เรนเดอร์ 3D Voxel DAG, Compute Shaders, แสดงผลขอบฟ้าไกลสุดสายตา |
-| 🖥️ **Server** | `lingHorizons-Server-V1-1.0.0.jar` | โฟลเดอร์ `mods/` บน Dedicated Server | คุม Chunky อัตโนมัติ, บันทึก Master RocksDB, สตรีม Hierarchical LOD Packets |
+|  **Client** | `lingHorizons-V1-1.0.1.jar` | Player's `mods/` directory | Renders 3D Voxel DAGs via Compute Shaders, rendering horizons up to maximum view distances |
+|  **Server** | `lingHorizons-Server-V1-1.0.0.jar` | Dedicated Server `mods/` directory | Chunky auto-bridge, Master RocksDB persistence, hierarchical LOD packet compression & streaming |
 
 ---
 
-## 📜 License
-LGPL-3.0 License.
+
+

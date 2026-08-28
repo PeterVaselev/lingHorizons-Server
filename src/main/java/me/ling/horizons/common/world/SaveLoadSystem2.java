@@ -6,7 +6,6 @@ import me.ling.horizons.common.util.MemoryBuffer;
 import me.ling.horizons.common.util.UnsafeUtil;
 import me.ling.horizons.common.world.other.Mapper;
 import net.minecraft.util.Mth;
-import org.lwjgl.system.MemoryUtil;
 
 import java.util.Arrays;
 
@@ -97,8 +96,8 @@ public class SaveLoadSystem2 {
 
         var res = new MemoryBuffer(32*32*32*8+1024);
         long ptr = res.address;
-        MemoryUtil.memPutLong(ptr, section.key); ptr += 8;
-        MemoryUtil.memPutLong(ptr, hash); ptr += 8;
+        UnsafeUtil.putLong(ptr, section.key); ptr += 8;
+        UnsafeUtil.putLong(ptr, hash); ptr += 8;
 
         int meta = 0;
         meta |= allSameBlockLight?1:0;
@@ -106,22 +105,22 @@ public class SaveLoadSystem2 {
         meta |= (biomeMapping.size()-1)<<2;//512 max size
         meta |= (blockMapping.size()-1)<<11;//4096 max size
         meta |= Byte.toUnsignedInt(section.nonEmptyChildren) << 23;
-        MemoryUtil.memPutInt(ptr, meta); ptr += 4;
+        UnsafeUtil.putInt(ptr, meta); ptr += 4;
 
         //Encode lighting
         /*
         //Micro storage optimization, not done cause makes decode very slightly slower and more pain
         if (allSameBlockLight && allSameSkyLight) {
-            MemoryUtil.memPutByte(ptr, (byte) ((blockLight[0]&0xF)|((skyLight[0]&0xF)<<4))); ptr += 1;
+            UnsafeUtil.putByte(ptr, (byte) ((blockLight[0]&0xF)|((skyLight[0]&0xF)<<4))); ptr += 1;
         } else*/
         {
             if (allSameBlockLight) {
-                MemoryUtil.memPutByte(ptr, (byte) (blockLight[0] & 0xF)); ptr += 1;
+                UnsafeUtil.putByte(ptr, (byte) (blockLight[0] & 0xF)); ptr += 1;
             } else {
                 UnsafeUtil.memcpy(blockLight, ptr); ptr += blockLight.length;
             }
             if (allSameSkyLight) {
-                MemoryUtil.memPutByte(ptr, (byte) (skyLight[0] & 0xF)); ptr += 1;
+                UnsafeUtil.putByte(ptr, (byte) (skyLight[0] & 0xF)); ptr += 1;
             } else {
                 UnsafeUtil.memcpy(skyLight, ptr); ptr += skyLight.length;
             }
@@ -138,7 +137,7 @@ public class SaveLoadSystem2 {
                     if (rem != 0)
                         batch |= (b << (32 - rem));//the shift does auto cutoff
                     if (rem < SIZE) {
-                        MemoryUtil.memPutInt(ptr, batch);
+                        UnsafeUtil.putInt(ptr, batch);
                         ptr += 4;
                         batch = b >> rem;
                         rem = 32 - (SIZE - rem);
@@ -154,7 +153,7 @@ public class SaveLoadSystem2 {
                     if (rem != 0)
                         batch |= (b << (32 - rem));//the shift does auto cutoff
                     if (rem < SIZE) {
-                        MemoryUtil.memPutInt(ptr, batch); ptr += 4;
+                        UnsafeUtil.putInt(ptr, batch); ptr += 4;
                         batch = b >> rem;
                         rem = 32 - (SIZE - rem);
                     } else {
@@ -163,7 +162,7 @@ public class SaveLoadSystem2 {
                 }
             }
             if (rem != 32) {
-                MemoryUtil.memPutInt(ptr, batch); ptr += 4;
+                UnsafeUtil.putInt(ptr, batch); ptr += 4;
             }
         }
 
@@ -179,7 +178,7 @@ public class SaveLoadSystem2 {
                 if (rem != 0)
                     batch |= (b << (32 - rem));//the shift does auto cutoff
                 if (rem < SIZE) {
-                    MemoryUtil.memPutInt(ptr, batch);
+                    UnsafeUtil.putInt(ptr, batch);
                     ptr += 4;
                     batch = b >> rem;
                     rem = 32 - (SIZE - rem);
@@ -188,7 +187,7 @@ public class SaveLoadSystem2 {
                 }
             }
             if (rem != 32) {
-                MemoryUtil.memPutInt(ptr, batch); ptr += 4;
+                UnsafeUtil.putInt(ptr, batch); ptr += 4;
             }
         }
         {//Store biome
@@ -204,7 +203,7 @@ public class SaveLoadSystem2 {
                     if (rem != 0)
                         batch |= (b << (32 - rem));//the shift does auto cutoff
                     if (rem < SIZE) {
-                        MemoryUtil.memPutInt(ptr, batch);
+                        UnsafeUtil.putInt(ptr, batch);
                         ptr += 4;
                         batch = b >> rem;
                         rem = 32 - (SIZE - rem);
@@ -213,7 +212,7 @@ public class SaveLoadSystem2 {
                     }
                 }
                 if (rem != 32) {
-                    MemoryUtil.memPutInt(ptr, batch); ptr += 4;
+                    UnsafeUtil.putInt(ptr, batch); ptr += 4;
                 }
             }
         }
@@ -225,13 +224,13 @@ public class SaveLoadSystem2 {
         var cache = DESERIALIZE_CACHE.get();
 
         long ptr = data.address;
-        long pos = MemoryUtil.memGetLong(ptr); ptr += 8;
+        long pos = UnsafeUtil.getLong(ptr); ptr += 8;
         if (section.key != pos) {
             Logger.error("Section pos not the same as requested, got " + pos + " expected " + section.key);
             return false;
         }
-        long chash = MemoryUtil.memGetLong(ptr); ptr += 8;
-        int meta = MemoryUtil.memGetInt(ptr); ptr += 4;
+        long chash = UnsafeUtil.getLong(ptr); ptr += 8;
+        int meta = UnsafeUtil.getInt(ptr); ptr += 4;
 
         boolean allSameBlockLight = (meta&1)!=0;
         boolean allSameSkyLight = (meta&2)!=0;
@@ -244,12 +243,12 @@ public class SaveLoadSystem2 {
 
         if (allSameBlockLight) {
             //shift up 4 so that its already in correct position
-            blockLight = Byte.toUnsignedLong(MemoryUtil.memGetByte(ptr))<<4; ptr += 1;
+            blockLight = Byte.toUnsignedLong(UnsafeUtil.getByte(ptr))<<4; ptr += 1;
         } else {
             blockLight = ptr; ptr += 32*32*32/2;
         }
         if (allSameSkyLight) {
-            skyLight = MemoryUtil.memGetByte(ptr); ptr += 1;
+            skyLight = UnsafeUtil.getByte(ptr); ptr += 1;
         } else {
             skyLight = ptr; ptr += 32*32*32/2;
         }
@@ -258,7 +257,7 @@ public class SaveLoadSystem2 {
         int[] biomeLut = new int[biomeMapSize];
         {//Deserialize the block and biome mappings
             int rem = 32;
-            int batch = MemoryUtil.memGetInt(ptr); ptr += 4;
+            int batch = UnsafeUtil.getInt(ptr); ptr += 4;
             {//Block
                 int SIZE = 20;// 20 bits per entry
                 int msk = (1<<SIZE)-1;
@@ -266,7 +265,7 @@ public class SaveLoadSystem2 {
                     int val = batch&msk;
                     batch >>>= SIZE; rem -= SIZE;
                     if (rem < 0) {
-                        batch = MemoryUtil.memGetInt(ptr); ptr += 4;
+                        batch = UnsafeUtil.getInt(ptr); ptr += 4;
                         val |= (batch&((1<<-rem)-1))<<(SIZE+rem);
                         batch >>>= -rem;
                         rem = 32+rem;
@@ -281,7 +280,7 @@ public class SaveLoadSystem2 {
                     int val = batch&msk;
                     batch >>>= SIZE; rem -= SIZE;
                     if (rem < 0) {
-                        batch = MemoryUtil.memGetInt(ptr); ptr += 4;
+                        batch = UnsafeUtil.getInt(ptr); ptr += 4;
                         val |= (batch&((1<<-rem)-1))<<(SIZE+rem);
                         batch >>>= -rem;
                         rem = 32+rem;
@@ -297,13 +296,13 @@ public class SaveLoadSystem2 {
         {//Block
             final int SIZE = Mth.smallestEncompassingPowerOfTwo(Mth.log2(Mth.smallestEncompassingPowerOfTwo(blockMapSize)));
             int rem = 32;
-            int batch = MemoryUtil.memGetInt(ptr); ptr += 4;
+            int batch = UnsafeUtil.getInt(ptr); ptr += 4;
             int msk = (1<<SIZE)-1;
             for (int i = 0; i < blocks.length; i++) {
                 int val = batch&msk;
                 batch >>>= SIZE; rem -= SIZE;
                 if (rem < 0) {
-                    batch = MemoryUtil.memGetInt(ptr); ptr += 4;
+                    batch = UnsafeUtil.getInt(ptr); ptr += 4;
                     val |= (batch&((1<<-rem)-1))<<(SIZE+rem);
                     batch >>>= -rem;
                     rem = 32+rem;
@@ -317,13 +316,13 @@ public class SaveLoadSystem2 {
             } else {
                 final int SIZE = Mth.smallestEncompassingPowerOfTwo(Mth.log2(Mth.smallestEncompassingPowerOfTwo(biomeMapSize)));
                 int rem = 32;
-                int batch = MemoryUtil.memGetInt(ptr); ptr += 4;
+                int batch = UnsafeUtil.getInt(ptr); ptr += 4;
                 int msk = (1<<SIZE)-1;
                 for (int i = 0; i < biomes.length; i++) {
                     int val = batch&msk;
                     batch >>>= SIZE; rem -= SIZE;
                     if (rem < 0) {
-                        batch = MemoryUtil.memGetInt(ptr); ptr += 4;
+                        batch = UnsafeUtil.getInt(ptr); ptr += 4;
                         val |= (batch&((1<<-rem)-1))<<(SIZE+rem);
                         batch >>>= -rem;
                         rem = 32+rem;
@@ -342,13 +341,13 @@ public class SaveLoadSystem2 {
                     light |= (byte) (blockLight&0xF0);
                 } else {
                     //Todo clean and optimize this (it can be optimized alot)
-                    light |= (byte) (((Byte.toUnsignedInt(MemoryUtil.memGetByte(blockLight+(i>>1)))>>((i&1)*4))&0xF)<<4);
+                    light |= (byte) (((Byte.toUnsignedInt(UnsafeUtil.getByte(blockLight+(i>>1)))>>((i&1)*4))&0xF)<<4);
                 }
                 if (allSameSkyLight) {
                     light |= (byte) (skyLight&0xF);
                 } else {
                     //Todo clean and optimize this (it can be optimized alot)
-                    light |= (byte) ((Byte.toUnsignedInt(MemoryUtil.memGetByte(skyLight+(i>>1)))>>((i&1)*4))&0xF);
+                    light |= (byte) ((Byte.toUnsignedInt(UnsafeUtil.getByte(skyLight+(i>>1)))>>((i&1)*4))&0xF);
                 }
             }
 
@@ -386,7 +385,7 @@ public class SaveLoadSystem2 {
                     if (rem != 0)
                         batch |= (b << (32 - rem));//the shift does auto cutoff
                     if (rem < SIZE) {
-                        MemoryUtil.memPutInt(ptr, batch);
+                        UnsafeUtil.putInt(ptr, batch);
                         ptr += 4;
                         batch = b >> rem;
                         rem = 32 - (SIZE - rem);
@@ -396,7 +395,7 @@ public class SaveLoadSystem2 {
                 }
             }
             if (rem != 32) {
-                MemoryUtil.memPutInt(ptr, batch); ptr += 4;
+                UnsafeUtil.putInt(ptr, batch); ptr += 4;
             }
             System.err.println(ptr-aa.address);
         }
@@ -405,7 +404,7 @@ public class SaveLoadSystem2 {
         {
             long ptr = aa.address;
             int rem = 32;
-            int batch = MemoryUtil.memGetInt(ptr); ptr += 4;
+            int batch = UnsafeUtil.getInt(ptr); ptr += 4;
             {//Block
                 int SIZE = 20;// 20 bits per entry
                 int msk = (1<<SIZE)-1;
@@ -413,7 +412,7 @@ public class SaveLoadSystem2 {
                     int val = batch&msk;
                     batch >>>= SIZE; rem -= SIZE;
                     if (rem < 0) {
-                        batch = MemoryUtil.memGetInt(ptr); ptr += 4;
+                        batch = UnsafeUtil.getInt(ptr); ptr += 4;
                         val |= (batch&((1<<-rem)-1))<<(SIZE+rem);
                         batch >>>= -rem;
                         rem = 32+rem;

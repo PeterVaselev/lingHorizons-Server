@@ -9,8 +9,8 @@ import me.ling.horizons.server.config.LingServerConfig;
 import me.ling.horizons.server.network.payload.LingHelloPayload;
 import me.ling.horizons.server.network.payload.LingLodDataPayload;
 import me.ling.horizons.server.network.payload.LingLodRequestPayload;
+import me.ling.horizons.common.util.UnsafeUtil;
 import net.minecraft.server.level.ServerPlayer;
-import org.lwjgl.system.MemoryUtil;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -208,7 +208,7 @@ public class ServerLodStreamingService {
                     if (mem != null && mem.size > 0) {
                         try {
                             byte[] data = new byte[(int) mem.size];
-                            MemoryUtil.memByteBuffer(mem.address, (int) mem.size).get(data);
+                            UnsafeUtil.memcpy(mem.address, (int) mem.size, data);
                             long key = WorldEngine.getWorldSectionId(lod, secX, secY, secZ);
                             player.connection.send(new LingLodDataPayload(key, lod, data));
                             totalBytes += mem.size;

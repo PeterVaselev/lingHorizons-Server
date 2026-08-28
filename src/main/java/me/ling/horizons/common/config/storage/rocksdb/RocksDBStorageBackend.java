@@ -6,8 +6,6 @@ import me.ling.horizons.common.config.storage.StorageBackend;
 import me.ling.horizons.common.config.storage.StorageConfig;
 import me.ling.horizons.common.util.MemoryBuffer;
 import me.ling.horizons.common.world.WorldEngine;
-import org.lwjgl.system.MemoryStack;
-import org.lwjgl.system.MemoryUtil;
 import org.rocksdb.*;
 
 import java.nio.ByteBuffer;
@@ -118,34 +116,31 @@ public class RocksDBStorageBackend extends StorageBackend {
 
     @Override
     public void iterateStoredSectionPositions(LongConsumer consumer) {
-        try (var stack = MemoryStack.stackPush()) {
-            ByteBuffer keyBuff = stack.calloc(8);
-            long keyBuffPtr = MemoryUtil.memAddress(keyBuff);
-            var iter = this.db.newIterator(this.worldSections, this.sectionReadOps);
-            iter.seekToFirst();
-            while (iter.isValid()) {
-                iter.key(keyBuff);
-                long key = Long.reverseBytes(MemoryUtil.memGetLong(keyBuffPtr));
-                consumer.accept(key);
-                iter.next();
-            }
-            iter.close();
+        ByteBuffer keyBuff = ByteBuffer.allocateDirect(8);
+        var iter = this.db.newIterator(this.worldSections, this.sectionReadOps);
+        iter.seekToFirst();
+        while (iter.isValid()) {
+            keyBuff.clear();
+            iter.key(keyBuff);
+            keyBuff.rewind();
+            long key = Long.reverseBytes(keyBuff.getLong());
+            consumer.accept(key);
+            iter.next();
         }
+        iter.close();
     }
 
     @Override
     public MemoryBuffer getSectionData(long key, MemoryBuffer scratch) {
-        try (var stack = MemoryStack.stackPush()){
-            var buffer = stack.malloc(8);
-            //HATE JAVA HATE JAVA HATE JAVA, Long.reverseBytes()
-            //THIS WILL ONLY WORK ON LITTLE ENDIAN SYSTEM AAAAAAAAA ;-;
-
-            MemoryUtil.memPutLong(MemoryUtil.memAddress(buffer), Long.reverseBytes(swizzlePos(key)));
+        try {
+            ByteBuffer buffer = ByteBuffer.allocateDirect(8);
+            buffer.putLong(Long.reverseBytes(swizzlePos(key)));
+            buffer.rewind();
 
             var result = this.db.get(this.worldSections,
                     this.sectionReadOps,
                     buffer,
-                    MemoryUtil.memByteBuffer(scratch.address, (int) (scratch.size)));
+                    scratch.asByteBuffer());
 
             if (result == RocksDB.NOT_FOUND) {
                 return null;
@@ -160,9 +155,10 @@ public class RocksDBStorageBackend extends StorageBackend {
     //TODO: FIXME, use the ByteBuffer variant
     @Override
     public void setSectionData(long key, MemoryBuffer data) {
-        try (var stack = MemoryStack.stackPush()) {
-            var keyBuff = stack.calloc(8);
-            MemoryUtil.memPutLong(MemoryUtil.memAddress(keyBuff), Long.reverseBytes(swizzlePos(key)));
+        try {
+            ByteBuffer keyBuff = ByteBuffer.allocateDirect(8);
+            keyBuff.putLong(Long.reverseBytes(swizzlePos(key)));
+            keyBuff.rewind();
             this.db.put(this.worldSections, this.sectionWriteOps, keyBuff, data.asByteBuffer());
         } catch (RocksDBException e) {
             throw new RuntimeException(e);
