@@ -1,6 +1,6 @@
 modLoader="javafml"
 loaderVersion="[4,)"
-license="LGPL-3.0"
+license="CC-BY-4.0"
 
 [[mods]]
 modId="ling_horizons_server"
