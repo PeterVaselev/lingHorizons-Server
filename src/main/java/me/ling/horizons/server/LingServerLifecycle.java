@@ -8,6 +8,7 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.server.ServerAboutToStartEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
+import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 
 /**
@@ -19,6 +20,7 @@ public class LingServerLifecycle {
     @SubscribeEvent
     public static void onServerAboutToStart(ServerAboutToStartEvent event) {
         Logger.info("Starting LING Horizons Master Server Engine...");
+        me.ling.horizons.common.world.service.VoxelIngestService.setShuttingDown(false);
         var server = event.getServer();
         if (LingCommon.getInstance() != null) {
             LingCommon.shutdownInstance();
@@ -67,8 +69,20 @@ public class LingServerLifecycle {
     }
 
     @SubscribeEvent
+    public static void onServerStopping(ServerStoppingEvent event) {
+        Logger.info("Server stopping initiated: halting Chunky and shutting down LING Horizons Master Engine...");
+        var server = event.getServer();
+        if (server != null) {
+            me.ling.horizons.server.integration.ChunkyIntegration.onServerStopping(server);
+        }
+        me.ling.horizons.common.world.service.VoxelIngestService.setShuttingDown(true);
+        LingCommon.shutdownInstance();
+    }
+
+    @SubscribeEvent
     public static void onServerStopped(ServerStoppedEvent event) {
-        Logger.info("Stopping LING Horizons Master Server Engine...");
+        Logger.info("Stopping LING Horizons Master Server Engine (final cleanup)...");
+        me.ling.horizons.common.world.service.VoxelIngestService.setShuttingDown(true);
         LingCommon.shutdownInstance();
     }
 }

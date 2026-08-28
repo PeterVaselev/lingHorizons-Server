@@ -21,12 +21,23 @@ import org.jetbrains.annotations.NotNull;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
 public class VoxelIngestService {
+    private static volatile boolean shuttingDown = false;
+
+    public static boolean isShuttingDown() {
+        return shuttingDown;
+    }
+
+    public static void setShuttingDown(boolean value) {
+        shuttingDown = value;
+    }
+
     private static final ThreadLocal<VoxelizedSection> SECTION_CACHE = ThreadLocal.withInitial(VoxelizedSection::createEmpty);
     private final Service service;
     private record IngestSection(int cx, int cy, int cz, WorldEngine world, LevelChunkSection section, DataLayer blockLight, DataLayer skyLight){}
     private final ConcurrentLinkedDeque<IngestSection> ingestQueue = new ConcurrentLinkedDeque<>();
 
     public VoxelIngestService(ServiceManager pool) {
+        shuttingDown = false;
         this.service = pool.createServiceNoCleanup(()->this::processJob, 5000, "Ingest service");
     }
 
@@ -177,18 +188,20 @@ public class VoxelIngestService {
     }
 
     public void shutdown() {
+        shuttingDown = true;
         this.ingestQueue.clear();
         this.service.shutdown();
     }
 
     //Utility method to ingest a chunk into the given WorldIdentifier or world
     public static boolean tryIngestChunk(WorldIdentifier worldId, LevelChunk chunk) {
+        if (shuttingDown) return false;
         if (worldId == null) return false;
         var instance = LingCommon.getInstance();
-        if (instance == null) return false;
+        if (instance == null || !instance.isRunning()) return false;
         if (!instance.isIngestEnabled(worldId)) return false;
         var engine = instance.getOrCreate(worldId);
-        if (engine == null) return false;
+        if (engine == null || !engine.isLive()) return false;
         return instance.getIngestService().enqueueIngest(engine, chunk);
     }
 

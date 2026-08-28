@@ -40,8 +40,11 @@ public class MixinNeoForgeWorld {
             Operation<CompletableFuture<ChunkResult<ChunkAccess>>> original
     ) {
         var future = original.call(instance, x, z, chunkStatus, create);
+        if (VoxelIngestService.isShuttingDown()) {
+            return future;
+        }
         return future.thenApply(res -> {
-            if (res != null) {
+            if (res != null && !VoxelIngestService.isShuttingDown()) {
                 res.ifSuccess(chunk -> {
                     if (chunk instanceof LevelChunk worldChunk) {
                         VoxelIngestService.tryAutoIngestChunk(worldChunk);

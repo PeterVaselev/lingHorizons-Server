@@ -194,4 +194,18 @@ public class ChunkyIntegration {
             }
         });
     }
+
+    /**
+     * Called during ServerStoppingEvent to ensure Chunky immediately halts generation before server saves worlds.
+     */
+    public static void onServerStopping(MinecraftServer server) {
+        if (!isChunkyLoaded() || server == null) return;
+        try {
+            Logger.info("[Chunky Auto-Bridge] Halting Chunky generation before server saves worlds...");
+            CommandSourceStack source = server.createCommandSourceStack();
+            server.getCommands().performPrefixedCommand(source, "chunky pause");
+        } catch (Exception e) {
+            Logger.error("Failed to pause Chunky during server stopping", e);
+        }
+    }
 }

@@ -78,6 +78,9 @@ public abstract class LingInstance {
     public UnifiedServiceThreadPool getThreadPool() {
         return this.threadPool;
     }
+    public boolean isRunning() {
+        return this.isRunning;
+    }
     public VoxelIngestService getIngestService() {
         return this.ingestService;
     }
