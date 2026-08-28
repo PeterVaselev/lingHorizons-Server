@@ -55,8 +55,8 @@ public class LingServerConfig {
             .define("autoStartChunkyOnBoot", false);
 
     private static final ModConfigSpec.IntValue AUTO_START_DELAY_SECONDS = BUILDER
-            .comment("Delay in seconds after server startup before executing auto-start commands (allows world and mods to settle)")
-            .defineInRange("autoStartDelaySeconds", 5, 1, 120);
+            .comment("Delay in seconds after server startup (ServerStartedEvent) before executing auto-start commands")
+            .defineInRange("autoStartDelaySeconds", 10, 1, 120);
 
     private static final ModConfigSpec.ConfigValue<List<? extends String>> AUTO_START_COMMANDS = BUILDER
             .comment("List of Chunky commands to execute sequentially on server boot if no players are online")
@@ -79,7 +79,7 @@ public class LingServerConfig {
     public static boolean autoManageChunky = true;
     public static boolean silentChunkyBridgeLogs = false;
     public static boolean autoStartChunkyOnBoot = false;
-    public static int autoStartDelaySeconds = 5;
+    public static int autoStartDelaySeconds = 10;
     public static List<String> autoStartCommands = new ArrayList<>(List.of(
             "chunky shape circle",
             "chunky center 0 0",

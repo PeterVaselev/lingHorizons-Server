@@ -47,7 +47,7 @@ public class ChunkyIntegration {
     }
 
     /**
-     * Executes the configured Chunky startup sequence after the server has booted.
+     * Executes the configured Chunky startup sequence after the server has booted (ServerStartedEvent).
      */
     public static void onServerStarted(MinecraftServer server) {
         if (!isChunkyLoaded() || server == null) {
@@ -59,18 +59,25 @@ public class ChunkyIntegration {
         }
 
         int delay = Math.max(1, LingServerConfig.autoStartDelaySeconds);
+        if (!LingServerConfig.silentChunkyBridgeLogs) {
+            Logger.info("[Chunky Auto-Bridge] ServerStartedEvent detected: Waiting " + delay + " seconds before starting Chunky pregeneration...");
+        }
+
         Thread startupThread = new Thread(() -> {
             try {
                 Thread.sleep(delay * 1000L);
 
                 if (!server.isRunning() || server.getPlayerCount() > 0) {
+                    if (!LingServerConfig.silentChunkyBridgeLogs && server.getPlayerCount() > 0) {
+                        Logger.info("[Chunky Auto-Bridge] Players already online after " + delay + "s delay -> Skipping Chunky startup sequence.");
+                    }
                     return;
                 }
 
                 server.execute(() -> {
                     try {
                         if (!LingServerConfig.silentChunkyBridgeLogs) {
-                            Logger.info("[Chunky Auto-Bridge] Executing server startup Chunky pregeneration sequence...");
+                            Logger.info("[Chunky Auto-Bridge] 10s elapsed & 0 players online -> Executing Chunky pregeneration sequence now!");
                         }
 
                         CommandSourceStack source = server.createCommandSourceStack();
