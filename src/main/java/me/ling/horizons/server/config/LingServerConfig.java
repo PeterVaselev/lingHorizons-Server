@@ -7,6 +7,9 @@ import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.event.config.ModConfigEvent;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Server-side configuration for LING Horizons LOD Streaming.
  */
@@ -47,6 +50,23 @@ public class LingServerConfig {
             .comment("Silence Chunky pause/resume notification messages in server console")
             .define("silentChunkyBridgeLogs", false);
 
+    private static final ModConfigSpec.BooleanValue AUTO_START_CHUNKY_ON_BOOT = BUILDER
+            .comment("Automatically execute Chunky pregeneration command sequence on server startup")
+            .define("autoStartChunkyOnBoot", false);
+
+    private static final ModConfigSpec.IntValue AUTO_START_DELAY_SECONDS = BUILDER
+            .comment("Delay in seconds after server startup before executing auto-start commands (allows world and mods to settle)")
+            .defineInRange("autoStartDelaySeconds", 5, 1, 120);
+
+    private static final ModConfigSpec.ConfigValue<List<? extends String>> AUTO_START_COMMANDS = BUILDER
+            .comment("List of Chunky commands to execute sequentially on server boot if no players are online")
+            .defineList("autoStartCommands", List.of(
+                    "chunky shape circle",
+                    "chunky center 0 0",
+                    "chunky radius 3000",
+                    "chunky start"
+            ), o -> o instanceof String);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 
     // Cached values for fast access
@@ -58,6 +78,14 @@ public class LingServerConfig {
     public static int offlineBoostThreads = 4;
     public static boolean autoManageChunky = true;
     public static boolean silentChunkyBridgeLogs = false;
+    public static boolean autoStartChunkyOnBoot = false;
+    public static int autoStartDelaySeconds = 5;
+    public static List<String> autoStartCommands = new ArrayList<>(List.of(
+            "chunky shape circle",
+            "chunky center 0 0",
+            "chunky radius 3000",
+            "chunky start"
+    ));
 
     public static void register(ModContainer container) {
         container.registerConfig(ModConfig.Type.SERVER, SPEC, "ling_horizons-server.toml");
@@ -74,6 +102,9 @@ public class LingServerConfig {
             offlineBoostThreads = OFFLINE_BOOST_THREADS.get();
             autoManageChunky = AUTO_MANAGE_CHUNKY.get();
             silentChunkyBridgeLogs = SILENT_CHUNKY_BRIDGE_LOGS.get();
+            autoStartChunkyOnBoot = AUTO_START_CHUNKY_ON_BOOT.get();
+            autoStartDelaySeconds = AUTO_START_DELAY_SECONDS.get();
+            autoStartCommands = new ArrayList<>(AUTO_START_COMMANDS.get());
         }
     }
 }

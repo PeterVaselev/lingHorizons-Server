@@ -7,6 +7,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.server.ServerAboutToStartEvent;
+import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 
 /**
@@ -28,6 +29,11 @@ public class LingServerLifecycle {
         if (instance instanceof LingServerInstance serverInstance) {
             serverInstance.updateAdaptiveMode(0);
         }
+    }
+
+    @SubscribeEvent
+    public static void onServerStarted(ServerStartedEvent event) {
+        me.ling.horizons.server.integration.ChunkyIntegration.onServerStarted(event.getServer());
     }
 
     @SubscribeEvent

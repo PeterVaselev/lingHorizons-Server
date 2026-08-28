@@ -47,6 +47,57 @@ public class ChunkyIntegration {
     }
 
     /**
+     * Executes the configured Chunky startup sequence after the server has booted.
+     */
+    public static void onServerStarted(MinecraftServer server) {
+        if (!isChunkyLoaded() || server == null) {
+            return;
+        }
+
+        if (!LingServerConfig.autoStartChunkyOnBoot) {
+            return;
+        }
+
+        int delay = Math.max(1, LingServerConfig.autoStartDelaySeconds);
+        Thread startupThread = new Thread(() -> {
+            try {
+                Thread.sleep(delay * 1000L);
+
+                if (!server.isRunning() || server.getPlayerCount() > 0) {
+                    return;
+                }
+
+                server.execute(() -> {
+                    try {
+                        if (!LingServerConfig.silentChunkyBridgeLogs) {
+                            Logger.info("[Chunky Auto-Bridge] Executing server startup Chunky pregeneration sequence...");
+                        }
+
+                        CommandSourceStack source = server.createCommandSourceStack();
+                        for (String cmd : LingServerConfig.autoStartCommands) {
+                            if (cmd != null && !cmd.trim().isEmpty()) {
+                                String cleanCmd = cmd.trim().startsWith("/") ? cmd.trim().substring(1) : cmd.trim();
+                                if (!LingServerConfig.silentChunkyBridgeLogs) {
+                                    Logger.info("[Chunky Auto-Bridge] Running command: /" + cleanCmd);
+                                }
+                                server.getCommands().performPrefixedCommand(source, cleanCmd);
+                            }
+                        }
+                    } catch (Exception e) {
+                        Logger.error("Failed to execute startup Chunky commands", e);
+                    }
+                });
+            } catch (InterruptedException ignored) {
+            } catch (Exception e) {
+                Logger.error("Error in Chunky startup sequence timer", e);
+            }
+        }, "Chunky Auto-Start Worker");
+
+        startupThread.setDaemon(true);
+        startupThread.start();
+    }
+
+    /**
      * Dispatches "chunky pause" on the server thread.
      */
     public static void pauseChunky(MinecraftServer server) {
