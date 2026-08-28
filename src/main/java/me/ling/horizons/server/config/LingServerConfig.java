@@ -45,7 +45,7 @@ public class LingServerConfig {
 
     @SubscribeEvent
     public static void onConfigLoad(ModConfigEvent event) {
-        if (event.getConfig().getSpec() == SPEC) {
+        if (event.getConfig().getSpec() == SPEC && (event instanceof ModConfigEvent.Loading || event instanceof ModConfigEvent.Reloading)) {
             streamingEnabled = STREAMING_ENABLED.get();
             maxStreamingRadiusChunks = MAX_STREAMING_RADIUS_CHUNKS.get();
             maxBandwidthPerPlayerKB = MAX_BANDWIDTH_PER_PLAYER_KB.get();
