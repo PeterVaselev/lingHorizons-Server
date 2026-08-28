@@ -9,6 +9,8 @@
 
 **LING Horizons Server** คือม็อดฝั่ง **Dedicated Server** สำหรับ Minecraft 1.21.1 (NeoForge) ที่ทำหน้าที่เป็นศูนย์กลางประมวลผล **Master Voxel DAG Engine** บันทึกและสตรีมข้อมูลภูมิประเทศความละเอียดสูง (LOD) สู่ผู้เล่นที่ติดตั้ง **LING Horizons Client**:
 
+- **🚀 Auto-Start Chunky on Boot (สั่งเปิดปั่น Chunk อัตโนมัติเมื่อเปิดเซิร์ฟ)**:
+  - สามารถสั่งให้เซิร์ฟเวอร์รันชุดคำสั่งของ Chunky ที่กำหนดไว้ในคอนฟิกโดยอัตโนมัติทันทีที่เปิดเซิร์ฟเวอร์เสร็จสิ้น (ทำงานต่อทันทีโดยแอดมินไม่ต้องพิมพ์คำสั่งเอง)
 - **🤖 Built-in Chunky Auto-Bridge (ระบบบริหาร Chunky อัจฉริยะ)**:
   - **เมื่อมีผู้เล่นเข้าเกม (>= 1 คน)**: สั่ง `chunky pause` อัตโนมัติทันที 100% เพื่อคืน CPU / RAM ให้ผู้เล่นเล่นได้ลื่นไหลที่สุด (TPS 20.00 นิ่งสนิท)
   - **เมื่อเซิร์ฟเวอร์ว่าง (0 คน)**: สั่ง `chunky resume` อัตโนมัติทันที เพื่อใช้เวลาว่างสร้างโลกและทำ Voxel LOD ต่อเนื่อง
@@ -21,33 +23,6 @@
   - ปิดตัวลงได้อย่างรวดเร็วใน **0.1 วินาที** เมื่อสั่ง `/stop` พร้อมบันทึก Flush ฐานข้อมูล RocksDB ลง SSD อย่างปลอดภัย 100%
 - **🤝 Vanilla & Multi-Mod Friendly**:
   - ผู้เล่นที่ไม่มี LING Horizons สามารถเข้าเล่นเซิร์ฟเวอร์ได้ตามปกติ ไม่บังคับติดตั้ง
-
----
-
-## 🚀 วิธีการติดตั้งและใช้งาน (Installation & Quick Start)
-
-### 1. การติดตั้งบน Dedicated Server:
-1. นำไฟล์ `lingHorizons-Server-V1-1.0.0.jar` ไปวางในโฟลเดอร์ `mods/` ของเซิร์ฟเวอร์ NeoForge 1.21.1
-2. ติดตั้งม็อด **Chunky (NeoForge)** ในโฟลเดอร์ `mods/` ของเซิร์ฟเวอร์
-
-### 2. ขั้นตอนการตั้งค่างานปั่นแมพ (Chunky Setup):
-เมื่อเปิดเซิร์ฟเวอร์ ให้พิมพ์คำสั่งใน Server Console หรือในเกม (แอดมิน):
-
-```bash
-# 1. กำหนดจุดศูนย์กลางของพื้นที่ (เช่น จุดเกิดโลก)
-/chunky center 0 0
-
-# 2. กำหนดรัศมีที่ต้องการปั่น (เช่น รัศมี 3,000 บล็อก = 187 ชังก์)
-/chunky radius 3000
-
-# 3. กำหนดรูปทรงเป็นวงกลม (Circle) หรือสี่เหลี่ยม (Square)
-/chunky shape circle
-
-# 4. เริ่มต้นการสร้างโลกและ Voxelize ลงฐานข้อมูล Master RocksDB
-/chunky start
-```
-
-> 💡 **ไม่ต้องกังวลเรื่องเซิร์ฟเวอร์แล็ก**: เมื่อมีผู้เล่นคนแรกล็อกอินเข้ามา ตัวม็อดจะสั่ง **Pause Chunky ให้อัตโนมัติทันที** และจะเริ่มทำงานต่อเองเมื่อทุกคนออกจากเซิร์ฟเวอร์!
 
 ---
 
@@ -86,6 +61,25 @@ autoManageChunky = true
 
 # ซ่อนข้อความแจ้งเตือนสถานะ Chunky Auto-Bridge ใน Console
 silentChunkyBridgeLogs = false
+
+# ------------------------------------------------------------------------------
+# 🚀 ระบบเปิด Chunky อัตโนมัติตอนเปิดเซิร์ฟเวอร์ (Auto-Start Chunky on Boot)
+# ------------------------------------------------------------------------------
+
+# เปิด/ปิดการรันชุดคำสั่ง Chunky อัตโนมัติเมื่อเซิร์ฟเวอร์บูตเสร็จสิ้น
+autoStartChunkyOnBoot = true
+
+# ระยะเวลารอ (วินาที) หลังเซิร์ฟเวอร์เปิดเสร็จ ก่อนเริ่มรันคำสั่ง (ให้ม็อดอื่นโหลดเสร็จสมบูรณ์)
+autoStartDelaySeconds = 5
+
+# รายการคำสั่งของ Chunky ที่ต้องการให้เซิร์ฟเวอร์รันเรียงตามลำดับอัตโนมัติ
+# สามารถปรับแต่งรูปทรง (shape), จุดศูนย์กลาง (center), รัศมี (radius), หรือใช้ chunky continue ได้ตามต้องการ
+autoStartCommands = [
+    "chunky shape circle",
+    "chunky center 0 0",
+    "chunky radius 3000",
+    "chunky start"
+]
 ```
 
 ---
@@ -104,7 +98,7 @@ silentChunkyBridgeLogs = false
 | ฝั่ง | ม็อดที่ใช้งาน | ตำแหน่งติดตั้ง | หน้าที่ |
 | :--- | :--- | :--- | :--- |
 | 💻 **Client** | `lingHorizons-V1-1.0.1.jar` | โฟลเดอร์ `mods/` ของผู้เล่น | เรนเดอร์ 3D Voxel DAG, Compute Shaders, แสดงผลขอบฟ้าไกลสุดสายตา |
-| 🖥️ **Server** | `lingHorizons-Server-V1-1.0.0.jar` | โฟลเดอร์ `mods/` บน Dedicated Server | คุม Chunky, บันทึก Master RocksDB, สตรีม Hierarchical LOD Packets |
+| 🖥️ **Server** | `lingHorizons-Server-V1-1.0.0.jar` | โฟลเดอร์ `mods/` บน Dedicated Server | คุม Chunky อัตโนมัติ, บันทึก Master RocksDB, สตรีม Hierarchical LOD Packets |
 
 ---
 
