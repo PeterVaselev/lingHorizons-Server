@@ -3,6 +3,18 @@
     {
       "identifier": {
         "group": "org.lwjgl",
+        "artifact": "lwjgl"
+      },
+      "version": {
+        "range": "[3.3.0,4.0.0)",
+        "artifactVersion": "3.3.3"
+      },
+      "path": "META-INF/jarjar/lwjgl-3.3.3.jar",
+      "isObfuscated": false
+    },
+    {
+      "identifier": {
+        "group": "org.lwjgl",
         "artifact": "lwjgl-zstd"
       },
       "version": {

@@ -62,11 +62,15 @@ project.ext.lwjglVersion = "3.3.3"
 dependencies {
     // LWJGL Platform & ZSTD Compression
     implementation platform("org.lwjgl:lwjgl-bom:$lwjglVersion")
-    implementation "org.lwjgl:lwjgl"
-
+    jarJar(implementation("org.lwjgl:lwjgl:$lwjglVersion")) {
+        version { strictly "[3.3.0,4.0.0)"; prefer "$lwjglVersion" }
+    }
     jarJar(implementation("org.lwjgl:lwjgl-zstd:$lwjglVersion")) {
         version { strictly "[3.3.0,4.0.0)"; prefer "$lwjglVersion" }
     }
+    additionalRuntimeClasspath "org.lwjgl:lwjgl:$lwjglVersion"
+    additionalRuntimeClasspath "org.lwjgl:lwjgl:$lwjglVersion:natives-windows"
+    additionalRuntimeClasspath "org.lwjgl:lwjgl:$lwjglVersion:natives-linux"
     additionalRuntimeClasspath "org.lwjgl:lwjgl-zstd:$lwjglVersion"
     additionalRuntimeClasspath "org.lwjgl:lwjgl-zstd:$lwjglVersion:natives-windows"
     additionalRuntimeClasspath "org.lwjgl:lwjgl-zstd:$lwjglVersion:natives-linux"
