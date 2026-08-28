@@ -23,6 +23,8 @@ public class LingServerInstance extends LingInstance {
     private final SectionStorageConfig storageConfig;
     private final ServerLodStreamingService streamingService;
 
+    private volatile boolean isGameplayMode = false;
+
     public LingServerInstance(MinecraftServer server) {
         super();
         this.server = server;
@@ -38,9 +40,35 @@ public class LingServerInstance extends LingInstance {
         this.updateDedicatedThreads();
     }
 
+    /**
+     * Dynamically updates thread allocation and workload priority based on player presence.
+     */
+    public void updateAdaptiveMode(int playerCount) {
+        if (!LingServerConfig.adaptiveWorkloadEnabled) {
+            return;
+        }
+
+        boolean newGameplayMode = playerCount > 0;
+        if (newGameplayMode != this.isGameplayMode) {
+            this.isGameplayMode = newGameplayMode;
+            if (newGameplayMode) {
+                int threads = Math.max(1, LingServerConfig.streamingWorkerThreads);
+                this.setNumThreads(threads);
+                me.ling.horizons.common.Logger.info("[LING Horizons Server] Switching to ACTIVE GAMEPLAY MODE (" + playerCount + " players online - Prioritizing LOD streaming & TPS stability)");
+            } else {
+                int threads = Math.max(LingServerConfig.streamingWorkerThreads, LingServerConfig.offlineBoostThreads);
+                this.setNumThreads(threads);
+                me.ling.horizons.common.Logger.info("[LING Horizons Server] Switching to OFFLINE PREGENERATION BOOST MODE (0 players - Accelerated background ingestion & auto-compaction)");
+            }
+        }
+    }
+
     @Override
     public void updateDedicatedThreads() {
-        this.setNumThreads(LingServerConfig.streamingWorkerThreads);
+        int threads = (this.isGameplayMode || !LingServerConfig.adaptiveWorkloadEnabled)
+                ? LingServerConfig.streamingWorkerThreads
+                : Math.max(LingServerConfig.streamingWorkerThreads, LingServerConfig.offlineBoostThreads);
+        this.setNumThreads(threads);
     }
 
     @Override

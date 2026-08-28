@@ -24,6 +24,10 @@ public class LingServerLifecycle {
         }
         LingCommon.setInstanceFactory(() -> new LingServerInstance(server));
         LingCommon.createInstance();
+        var instance = LingCommon.getInstance();
+        if (instance instanceof LingServerInstance serverInstance) {
+            serverInstance.updateAdaptiveMode(0);
+        }
     }
 
     @SubscribeEvent
@@ -32,6 +36,8 @@ public class LingServerLifecycle {
             var instance = LingCommon.getInstance();
             if (instance instanceof LingServerInstance serverInstance) {
                 serverInstance.getStreamingService().onPlayerJoin(player);
+                int count = player.getServer() != null ? player.getServer().getPlayerCount() : 1;
+                serverInstance.updateAdaptiveMode(count);
             }
         }
     }
@@ -42,6 +48,8 @@ public class LingServerLifecycle {
             var instance = LingCommon.getInstance();
             if (instance instanceof LingServerInstance serverInstance) {
                 serverInstance.getStreamingService().onPlayerLeave(player);
+                int count = player.getServer() != null ? Math.max(0, player.getServer().getPlayerCount() - 1) : 0;
+                serverInstance.updateAdaptiveMode(count);
             }
         }
     }

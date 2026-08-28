@@ -31,6 +31,14 @@ public class LingServerConfig {
             .comment("Number of background worker threads dedicated to LOD reading and streaming")
             .defineInRange("streamingWorkerThreads", 2, 1, 8);
 
+    private static final ModConfigSpec.BooleanValue ADAPTIVE_WORKLOAD_ENABLED = BUILDER
+            .comment("Automatically adapt background workload based on player presence (Throttled during gameplay, Boosted when 0 players)")
+            .define("adaptiveWorkloadEnabled", true);
+
+    private static final ModConfigSpec.IntValue OFFLINE_BOOST_THREADS = BUILDER
+            .comment("Number of threads dedicated to voxel pregeneration and storage when 0 players are online")
+            .defineInRange("offlineBoostThreads", 4, 1, 16);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 
     // Cached values for fast access
@@ -38,6 +46,8 @@ public class LingServerConfig {
     public static int maxStreamingRadiusChunks = 128;
     public static int maxBandwidthPerPlayerKB = 50;
     public static int streamingWorkerThreads = 2;
+    public static boolean adaptiveWorkloadEnabled = true;
+    public static int offlineBoostThreads = 4;
 
     public static void register(ModContainer container) {
         container.registerConfig(ModConfig.Type.SERVER, SPEC, "ling_horizons-server.toml");
@@ -50,6 +60,8 @@ public class LingServerConfig {
             maxStreamingRadiusChunks = MAX_STREAMING_RADIUS_CHUNKS.get();
             maxBandwidthPerPlayerKB = MAX_BANDWIDTH_PER_PLAYER_KB.get();
             streamingWorkerThreads = STREAMING_WORKER_THREADS.get();
+            adaptiveWorkloadEnabled = ADAPTIVE_WORKLOAD_ENABLED.get();
+            offlineBoostThreads = OFFLINE_BOOST_THREADS.get();
         }
     }
 }
