@@ -38,6 +38,9 @@ public class LingServerLifecycle {
                 serverInstance.getStreamingService().onPlayerJoin(player);
                 int count = player.getServer() != null ? player.getServer().getPlayerCount() : 1;
                 serverInstance.updateAdaptiveMode(count);
+                if (player.getServer() != null) {
+                    me.ling.horizons.server.integration.ChunkyIntegration.onPlayerCountChanged(player.getServer(), count);
+                }
             }
         }
     }
@@ -50,6 +53,9 @@ public class LingServerLifecycle {
                 serverInstance.getStreamingService().onPlayerLeave(player);
                 int count = player.getServer() != null ? Math.max(0, player.getServer().getPlayerCount() - 1) : 0;
                 serverInstance.updateAdaptiveMode(count);
+                if (player.getServer() != null) {
+                    me.ling.horizons.server.integration.ChunkyIntegration.onPlayerCountChanged(player.getServer(), count);
+                }
             }
         }
     }

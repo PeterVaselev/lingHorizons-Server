@@ -39,6 +39,14 @@ public class LingServerConfig {
             .comment("Number of threads dedicated to voxel pregeneration and storage when 0 players are online")
             .defineInRange("offlineBoostThreads", 4, 1, 16);
 
+    private static final ModConfigSpec.BooleanValue AUTO_MANAGE_CHUNKY = BUILDER
+            .comment("Automatically pause Chunky when players are online and resume Chunky when 0 players")
+            .define("autoManageChunky", true);
+
+    private static final ModConfigSpec.BooleanValue SILENT_CHUNKY_BRIDGE_LOGS = BUILDER
+            .comment("Silence Chunky pause/resume notification messages in server console")
+            .define("silentChunkyBridgeLogs", false);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 
     // Cached values for fast access
@@ -48,6 +56,8 @@ public class LingServerConfig {
     public static int streamingWorkerThreads = 2;
     public static boolean adaptiveWorkloadEnabled = true;
     public static int offlineBoostThreads = 4;
+    public static boolean autoManageChunky = true;
+    public static boolean silentChunkyBridgeLogs = false;
 
     public static void register(ModContainer container) {
         container.registerConfig(ModConfig.Type.SERVER, SPEC, "ling_horizons-server.toml");
@@ -62,6 +72,8 @@ public class LingServerConfig {
             streamingWorkerThreads = STREAMING_WORKER_THREADS.get();
             adaptiveWorkloadEnabled = ADAPTIVE_WORKLOAD_ENABLED.get();
             offlineBoostThreads = OFFLINE_BOOST_THREADS.get();
+            autoManageChunky = AUTO_MANAGE_CHUNKY.get();
+            silentChunkyBridgeLogs = SILENT_CHUNKY_BRIDGE_LOGS.get();
         }
     }
 }
