@@ -37,6 +37,16 @@ public class LingServerLifecycle {
     }
 
     @SubscribeEvent
+    public static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            var instance = LingCommon.getInstance();
+            if (instance instanceof LingServerInstance serverInstance) {
+                serverInstance.getStreamingService().onPlayerLeave(player);
+            }
+        }
+    }
+
+    @SubscribeEvent
     public static void onServerStopped(ServerStoppedEvent event) {
         Logger.info("Stopping LING Horizons Master Server Engine...");
         LingCommon.shutdownInstance();
