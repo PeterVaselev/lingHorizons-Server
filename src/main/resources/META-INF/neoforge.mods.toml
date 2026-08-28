@@ -1,0 +1,31 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="LGPL-3.0"
+
+[[mods]]
+modId="ling_horizons_server"
+version="${version}"
+displayName="LING Horizons Server"
+logoFile="logo2.png"
+description='''
+LING Horizons Server is the dedicated server streaming engine for LING Horizons.
+Provides Master RocksDB LOD caching, real-time Chunky pre-generation ingestion, and asynchronous LOD network streaming.
+'''
+authors="LING"
+
+[[mixins]]
+config="ling_horizons_server.mixins.json"
+
+[[dependencies.ling_horizons_server]]
+modId="neoforge"
+type="required"
+versionRange="[21.1.0,)"
+ordering="NONE"
+side="SERVER"
+
+[[dependencies.ling_horizons_server]]
+modId="minecraft"
+type="required"
+versionRange="[1.21.1,1.21.2)"
+ordering="NONE"
+side="SERVER"

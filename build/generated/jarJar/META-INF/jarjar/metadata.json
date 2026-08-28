@@ -1,0 +1,28 @@
+{
+  "jars": [
+    {
+      "identifier": {
+        "group": "org.lwjgl",
+        "artifact": "lwjgl-zstd"
+      },
+      "version": {
+        "range": "[3.3.0,4.0.0)",
+        "artifactVersion": "3.3.3"
+      },
+      "path": "META-INF/jarjar/lwjgl-zstd-3.3.3.jar",
+      "isObfuscated": false
+    },
+    {
+      "identifier": {
+        "group": "org.rocksdb",
+        "artifact": "rocksdbjni"
+      },
+      "version": {
+        "range": "[10.0.0,11.0.0)",
+        "artifactVersion": "10.2.1"
+      },
+      "path": "META-INF/jarjar/rocksdbjni-10.2.1.jar",
+      "isObfuscated": false
+    }
+  ]
+}

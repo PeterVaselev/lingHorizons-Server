@@ -1,0 +1,98 @@
+plugins {
+    id 'net.neoforged.moddev' version "2.0.42-beta"
+    id 'maven-publish'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+    archivesName = project.archives_base_name
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        name = "Modrinth"
+        url = "https://api.modrinth.com/maven"
+    }
+}
+
+def gitCommitHash = { ->
+    try {
+        ExecOutput result = providers.exec {
+            commandLine = ['git', 'rev-parse', '--short', 'HEAD']
+            ignoreExitValue = true
+        }
+
+        if (result.getResult().get().getExitValue() != 0) {
+            return "<UnknownCommit>";
+        } else {
+            return result.standardOutput.asText.get().strip();
+        }
+    } catch (Exception e) {
+        return "<UnknownCommit>";
+    }
+}
+
+def buildtime = {System.currentTimeSeconds()}
+
+processResources {
+    def time = buildtime()
+    def hash = gitCommitHash()
+    def version = project.version
+
+    inputs.properties("version": version, "commit": hash, "buildtime": time)
+    filesMatching("META-INF/neoforge.mods.toml") {
+        expand "version": version, "commit": hash, "buildtime": time
+    }
+}
+
+neoForge {
+    version = project.neoforge_version
+
+    parchment {
+        minecraftVersion = project.minecraft_version
+        mappingsVersion = "2024.11.17"
+    }
+}
+
+project.ext.lwjglVersion = "3.3.3"
+
+dependencies {
+    // LWJGL Platform & ZSTD Compression
+    implementation platform("org.lwjgl:lwjgl-bom:$lwjglVersion")
+    implementation "org.lwjgl:lwjgl"
+
+    jarJar(implementation("org.lwjgl:lwjgl-zstd:$lwjglVersion")) {
+        version { strictly "[3.3.0,4.0.0)"; prefer "$lwjglVersion" }
+    }
+    additionalRuntimeClasspath "org.lwjgl:lwjgl-zstd:$lwjglVersion"
+    additionalRuntimeClasspath "org.lwjgl:lwjgl-zstd:$lwjglVersion:natives-windows"
+    additionalRuntimeClasspath "org.lwjgl:lwjgl-zstd:$lwjglVersion:natives-linux"
+
+    // High-Speed Master RocksDB Storage
+    jarJar(implementation('org.rocksdb:rocksdbjni')) {
+        version {
+            strictly '[10.0.0, 11.0.0)'
+            prefer '10.2.1'
+        }
+    }
+
+    // LZ4 Compression
+    implementation 'org.lz4:lz4-java:1.8.0'
+
+    // MixinExtras for NeoForge bytecode injection
+    compileOnly 'io.github.llamalad7:mixinextras-common:0.4.1'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.compilerArgs += ['--add-modules', 'jdk.incubator.vector']
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
