@@ -54,12 +54,16 @@ public class LingServerConfig {
             .comment("Automatically execute Chunky pregeneration command sequence on server startup")
             .define("autoStartChunkyOnBoot", false);
 
+    private static final ModConfigSpec.BooleanValue AUTO_DETECT_EXISTING_TASK = BUILDER
+            .comment("Automatically detect saved/interrupted Chunky tasks on disk and resume them via '/chunky continue' instead of restarting from scratch")
+            .define("autoDetectExistingTask", true);
+
     private static final ModConfigSpec.IntValue AUTO_START_DELAY_SECONDS = BUILDER
             .comment("Delay in seconds after server startup (ServerStartedEvent) before executing auto-start commands")
             .defineInRange("autoStartDelaySeconds", 10, 1, 120);
 
     private static final ModConfigSpec.ConfigValue<List<? extends String>> AUTO_START_COMMANDS = BUILDER
-            .comment("List of Chunky commands to execute sequentially on server boot if no players are online")
+            .comment("List of Chunky commands to execute sequentially on server boot if no existing task is detected and no players are online")
             .defineList("autoStartCommands", List.of(
                     "chunky shape circle",
                     "chunky center 0 0",
@@ -79,6 +83,7 @@ public class LingServerConfig {
     public static boolean autoManageChunky = true;
     public static boolean silentChunkyBridgeLogs = false;
     public static boolean autoStartChunkyOnBoot = false;
+    public static boolean autoDetectExistingTask = true;
     public static int autoStartDelaySeconds = 10;
     public static List<String> autoStartCommands = new ArrayList<>(List.of(
             "chunky shape circle",
@@ -103,6 +108,7 @@ public class LingServerConfig {
             autoManageChunky = AUTO_MANAGE_CHUNKY.get();
             silentChunkyBridgeLogs = SILENT_CHUNKY_BRIDGE_LOGS.get();
             autoStartChunkyOnBoot = AUTO_START_CHUNKY_ON_BOOT.get();
+            autoDetectExistingTask = AUTO_DETECT_EXISTING_TASK.get();
             autoStartDelaySeconds = AUTO_START_DELAY_SECONDS.get();
             autoStartCommands = new ArrayList<>(AUTO_START_COMMANDS.get());
         }

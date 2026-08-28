@@ -6,6 +6,10 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.server.MinecraftServer;
 import net.neoforged.fml.ModList;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+
 /**
  * Built-in Chunky Auto-Bridge for LING Horizons Server.
  * Automatically pauses Chunky chunk generation during active gameplay (>= 1 player)
@@ -21,6 +25,48 @@ public class ChunkyIntegration {
             chunkyLoaded = ModList.get().isLoaded("chunky");
         }
         return chunkyLoaded;
+    }
+
+    /**
+     * Checks whether Chunky has any uncompleted / paused saved tasks on disk.
+     */
+    public static boolean hasSavedChunkyTask() {
+        try {
+            File tasksDir = new File("config/chunky/tasks");
+            if (!tasksDir.exists() || !tasksDir.isDirectory()) {
+                return false;
+            }
+            return checkDirectoryForTasks(tasksDir);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private static boolean checkDirectoryForTasks(File dir) {
+        File[] files = dir.listFiles();
+        if (files == null) return false;
+        for (File f : files) {
+            if (f.isDirectory()) {
+                if (checkDirectoryForTasks(f)) return true;
+            } else if (f.getName().endsWith(".properties")) {
+                try (BufferedReader reader = new BufferedReader(new FileReader(f))) {
+                    String line;
+                    boolean cancelled = false;
+                    while ((line = reader.readLine()) != null) {
+                        String trimmed = line.trim();
+                        if (trimmed.startsWith("cancelled=true")) {
+                            cancelled = true;
+                            break;
+                        }
+                    }
+                    if (!cancelled) {
+                        return true;
+                    }
+                } catch (Exception ignored) {
+                }
+            }
+        }
+        return false;
     }
 
     /**
@@ -76,18 +122,27 @@ public class ChunkyIntegration {
 
                 server.execute(() -> {
                     try {
-                        if (!LingServerConfig.silentChunkyBridgeLogs) {
-                            Logger.info("[Chunky Auto-Bridge] 10s elapsed & 0 players online -> Executing Chunky pregeneration sequence now!");
-                        }
-
                         CommandSourceStack source = server.createCommandSourceStack();
-                        for (String cmd : LingServerConfig.autoStartCommands) {
-                            if (cmd != null && !cmd.trim().isEmpty()) {
-                                String cleanCmd = cmd.trim().startsWith("/") ? cmd.trim().substring(1) : cmd.trim();
-                                if (!LingServerConfig.silentChunkyBridgeLogs) {
-                                    Logger.info("[Chunky Auto-Bridge] Running command: /" + cleanCmd);
+
+                        // 🔍 Smart Auto-Detection: Resume existing uncompleted Chunky tasks without prompting
+                        if (LingServerConfig.autoDetectExistingTask && hasSavedChunkyTask()) {
+                            if (!LingServerConfig.silentChunkyBridgeLogs) {
+                                Logger.info("[Chunky Auto-Bridge] Existing saved Chunky task detected -> Automatically executing '/chunky continue' to resume progress safely!");
+                            }
+                            server.getCommands().performPrefixedCommand(source, "chunky continue");
+                        } else {
+                            if (!LingServerConfig.silentChunkyBridgeLogs) {
+                                Logger.info("[Chunky Auto-Bridge] No existing Chunky task found -> Executing new pregeneration command sequence...");
+                            }
+
+                            for (String cmd : LingServerConfig.autoStartCommands) {
+                                if (cmd != null && !cmd.trim().isEmpty()) {
+                                    String cleanCmd = cmd.trim().startsWith("/") ? cmd.trim().substring(1) : cmd.trim();
+                                    if (!LingServerConfig.silentChunkyBridgeLogs) {
+                                        Logger.info("[Chunky Auto-Bridge] Running command: /" + cleanCmd);
+                                    }
+                                    server.getCommands().performPrefixedCommand(source, cleanCmd);
                                 }
-                                server.getCommands().performPrefixedCommand(source, cleanCmd);
                             }
                         }
                     } catch (Exception e) {
