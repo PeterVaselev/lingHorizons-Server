@@ -25,7 +25,7 @@ public class LingCommon {
         if (modFile == null) {
             IS_IN_MINECRAFT = false;
             Logger.info("Initializing LING Horizons Server Standalone");
-            MOD_VERSION = "1.0.0";
+            MOD_VERSION = "1.0.3";
             IS_DEDICATED_SERVER = true;
         } else {
             IS_IN_MINECRAFT = true;
@@ -33,7 +33,7 @@ public class LingCommon {
                     .filter(m -> m.getModId().equals("ling_horizons_server") || m.getModId().equals("ling_horizons"))
                     .findFirst()
                     .map(m -> m.getVersion().toString())
-                    .orElse("1.0.0");
+                    .orElse("1.0.3");
             MOD_VERSION = version;
             IS_DEDICATED_SERVER = FMLLoader.getDist() == Dist.DEDICATED_SERVER;
         }

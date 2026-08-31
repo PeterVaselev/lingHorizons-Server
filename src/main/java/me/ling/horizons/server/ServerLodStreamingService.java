@@ -95,8 +95,9 @@ public class ServerLodStreamingService {
                 }
 
                 var level = player.serverLevel();
-                WorldEngine engine = WorldIdentifier.ofEngineNullable(level);
+                WorldEngine engine = WorldIdentifier.ofEngine(level);
                 if (engine == null) {
+                    Logger.warn("[LING LOD Streamer] Could not obtain WorldEngine for level " + level.dimension().location());
                     return;
                 }
 
@@ -105,6 +106,10 @@ public class ServerLodStreamingService {
                 int centerZ = request.centerChunkZ();
                 int minLOD = Math.max(0, request.minDetailLevel());
                 int maxLOD = Math.min(4, request.maxDetailLevel());
+
+                long streamStartTime = System.currentTimeMillis();
+                long totalStreamedBytes = 0;
+                int totalStreamedSections = 0;
 
                 // Token Bucket Rate Limiter settings (bytes per second)
                 long maxBytesPerSec = Math.max(10, LingServerConfig.maxBandwidthPerPlayerKB) * 1024L;
@@ -125,7 +130,10 @@ public class ServerLodStreamingService {
                         for (int secZ = minSecZ; secZ <= maxSecZ; secZ++) {
                             if (Thread.currentThread().isInterrupted() || player.hasDisconnected()) return;
 
-                            bytesSentInWindow += streamColumnSections(engine, player, lod, secX, secZ);
+                            StreamResult res = streamColumnSections(engine, player, lod, secX, secZ);
+                            bytesSentInWindow += res.bytes();
+                            totalStreamedBytes += res.bytes();
+                            totalStreamedSections += res.sections();
                         }
                     }
                 }
@@ -161,7 +169,10 @@ public class ServerLodStreamingService {
                     for (Section2DPos pos : positions) {
                         if (Thread.currentThread().isInterrupted() || player.hasDisconnected()) return;
 
-                        bytesSentInWindow += streamColumnSections(engine, player, lod, pos.secX, pos.secZ);
+                        StreamResult res = streamColumnSections(engine, player, lod, pos.secX, pos.secZ);
+                        bytesSentInWindow += res.bytes();
+                        totalStreamedBytes += res.bytes();
+                        totalStreamedSections += res.sections();
 
                         // Token Bucket throttling (check every 50ms window)
                         long now = System.currentTimeMillis();
@@ -184,6 +195,14 @@ public class ServerLodStreamingService {
                     }
                 }
 
+                long totalTime = System.currentTimeMillis() - streamStartTime;
+                if (totalStreamedSections > 0) {
+                    Logger.info(String.format("[LING LOD Streamer] Streamed %d sections (%.1f KB) to %s in %.2fs",
+                            totalStreamedSections, totalStreamedBytes / 1024.0, player.getName().getString(), totalTime / 1000.0));
+                } else {
+                    Logger.info("[LING LOD Streamer] Player " + player.getName().getString() + " requested LODs, but 0 sections were stored in RocksDB for this area.");
+                }
+
             } catch (Exception e) {
                 Logger.error("Error streaming LOD data to player " + player.getName().getString(), e);
             } finally {
@@ -194,12 +213,15 @@ public class ServerLodStreamingService {
         this.activeStreams.put(playerUUID, task);
     }
 
+    private record StreamResult(long bytes, int sections) {}
+
     /**
      * Streams vertical sections from Y=-2 to 10 for a given (lod, secX, secZ) column.
-     * Returns total bytes sent.
+     * Returns total bytes and sections sent.
      */
-    private long streamColumnSections(WorldEngine engine, ServerPlayer player, int lod, int secX, int secZ) {
+    private StreamResult streamColumnSections(WorldEngine engine, ServerPlayer player, int lod, int secX, int secZ) {
         long totalBytes = 0;
+        int totalSections = 0;
         for (int secY = -2; secY <= 10; secY++) {
             WorldSection section = engine.acquireIfExists(lod, secX, secY, secZ);
             if (section != null) {
@@ -212,6 +234,7 @@ public class ServerLodStreamingService {
                             long key = WorldEngine.getWorldSectionId(lod, secX, secY, secZ);
                             player.connection.send(new LingLodDataPayload(key, lod, data));
                             totalBytes += mem.size;
+                            totalSections++;
                         } finally {
                             mem.free();
                         }
@@ -221,7 +244,7 @@ public class ServerLodStreamingService {
                 }
             }
         }
-        return totalBytes;
+        return new StreamResult(totalBytes, totalSections);
     }
 
     public void shutdown() {

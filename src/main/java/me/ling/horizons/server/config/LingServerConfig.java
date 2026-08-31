@@ -62,6 +62,10 @@ public class LingServerConfig {
             .comment("Delay in seconds after server startup (ServerStartedEvent) before executing auto-start commands")
             .defineInRange("autoStartDelaySeconds", 10, 1, 120);
 
+    private static final ModConfigSpec.BooleanValue AUTO_SCAN_EXISTING_WORLD_ON_BOOT = BUILDER
+            .comment("Automatically scan and import pre-existing MCA region files into Master RocksDB on server startup (Recommended: false to prevent boot CPU spike; use '/ling import' manually when needed)")
+            .define("autoScanExistingWorldOnBoot", false);
+
     private static final ModConfigSpec.ConfigValue<List<? extends String>> AUTO_START_COMMANDS = BUILDER
             .comment("List of Chunky commands to execute sequentially on server boot if no existing task is detected and no players are online")
             .defineList("autoStartCommands", List.of(
@@ -84,6 +88,7 @@ public class LingServerConfig {
     public static boolean silentChunkyBridgeLogs = false;
     public static boolean autoStartChunkyOnBoot = false;
     public static boolean autoDetectExistingTask = true;
+    public static boolean autoScanExistingWorldOnBoot = false;
     public static int autoStartDelaySeconds = 10;
     public static List<String> autoStartCommands = new ArrayList<>(List.of(
             "chunky shape circle",
@@ -109,6 +114,7 @@ public class LingServerConfig {
             silentChunkyBridgeLogs = SILENT_CHUNKY_BRIDGE_LOGS.get();
             autoStartChunkyOnBoot = AUTO_START_CHUNKY_ON_BOOT.get();
             autoDetectExistingTask = AUTO_DETECT_EXISTING_TASK.get();
+            autoScanExistingWorldOnBoot = AUTO_SCAN_EXISTING_WORLD_ON_BOOT.get();
             autoStartDelaySeconds = AUTO_START_DELAY_SECONDS.get();
             autoStartCommands = new ArrayList<>(AUTO_START_COMMANDS.get());
         }

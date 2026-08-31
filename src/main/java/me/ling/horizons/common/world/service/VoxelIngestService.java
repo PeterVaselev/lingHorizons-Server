@@ -55,7 +55,7 @@ public class VoxelIngestService {
                     SECTION_CACHE.get(),
                     task.world.getMapper(),
                     section.getStates(),
-                    section.getBiomes(),
+                    section.hasOnlyAir() ? null : section.getBiomes(),
                     getLightingSupplier(task)
             );
             WorldConversionFactory.mipSection(csec, task.world.getMapper());
@@ -119,17 +119,15 @@ public class VoxelIngestService {
         for (var section : chunk.getSections()) {
             i++;
             if (section == null || !shouldIngestSection(section, chunk.getPos().x, i, chunk.getPos().z)) continue;
-            allEmpty&=section.hasOnlyAir();
-            //if (section.isEmpty()) continue;
+            allEmpty &= section.hasOnlyAir();
             var pos = SectionPos.of(chunk.getPos(), i);
             if (lightingProvider.getDebugSectionType(LightLayer.SKY, pos) != LayerLightSectionStorage.SectionType.LIGHT_AND_DATA && lightingProvider.getDebugSectionType(LightLayer.BLOCK, pos) != LayerLightSectionStorage.SectionType.LIGHT_AND_DATA)
                 continue;
             gotLighting = true;
         }
 
-        if (allEmpty&&!gotLighting) {
-            //Special case all empty chunk columns, we need to clear it out
-            // MC 1.21.1: LevelChunk.getMinSectionY() → chunk.getLevel().getMinSection()
+        if (allEmpty && !gotLighting) {
+            // Special case all empty chunk columns, we need to clear it out
             i = chunk.getLevel().getMinSection() - 1;
             for (var section : chunk.getSections()) {
                 i++;
@@ -139,7 +137,7 @@ public class VoxelIngestService {
                 try {
                     this.service.execute();
                 } catch (Exception e) {
-                    Logger.error("Executing had an error: assume shutting down, aborting",e);
+                    Logger.error("Executing had an error: assume shutting down, aborting", e);
                     break;
                 }
             }
@@ -171,7 +169,6 @@ public class VoxelIngestService {
                 }
             }
 
-            engine.markActive();
             this.ingestQueue.add(new IngestSection(chunk.getPos().x, i, chunk.getPos().z, engine, section, bl, sl));
             try {
                 this.service.execute();

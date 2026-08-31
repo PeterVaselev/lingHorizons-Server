@@ -108,6 +108,13 @@ autoManageChunky = true
 silentChunkyBridgeLogs = false
 
 # ------------------------------------------------------------------------------
+# Pre-existing World Importer & Auto-Scan
+# ------------------------------------------------------------------------------
+
+# Automatically scan and import pre-existing MCA region files into Master RocksDB on server startup if unindexed
+autoScanExistingWorldOnBoot = true
+
+# ------------------------------------------------------------------------------
 # Auto-Start Chunky on Boot (Automated Pre-generation)
 # ------------------------------------------------------------------------------
 
@@ -248,6 +255,18 @@ When the server receives a `/stop` command:
 | 🖧 **Dedicated Server** | `lingHorizons-Server-V1-1.0.0.jar` | Server's `mods/` directory | Chunky auto-bridge, RocksDB storage, hierarchical LOD packet compression, radial player streaming |
 
 > 💡 **Note**: Players who join without the client mod can play normally (Vanilla-friendly). Only players with the client mod will receive distant LOD streaming.
+
+---
+
+## 💻 In-Game & Server Console Commands
+
+LING Horizons provides administrative commands (requires OP permission level 2 or server console):
+
+| Command | Description | Example Usage |
+| :--- | :--- | :--- |
+| `/ling status` | Displays Master RocksDB status, active streaming players, bandwidth limits, and importer state. | `/ling status` |
+| `/ling import [all\|dimension]` | Asynchronously scans and imports pre-existing `.mca` region files directly from disk into Master RocksDB with live progress logging. | `/ling import all` or `/ling import overworld` |
+| `/ling cancel` | Cancels an ongoing background `.mca` region import task. | `/ling cancel` |
 
 ---
 

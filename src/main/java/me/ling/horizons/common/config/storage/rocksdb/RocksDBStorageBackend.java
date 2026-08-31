@@ -116,30 +116,56 @@ public class RocksDBStorageBackend extends StorageBackend {
 
     @Override
     public void iterateStoredSectionPositions(LongConsumer consumer) {
-        ByteBuffer keyBuff = ByteBuffer.allocateDirect(8);
         var iter = this.db.newIterator(this.worldSections, this.sectionReadOps);
         iter.seekToFirst();
         while (iter.isValid()) {
-            keyBuff.clear();
-            iter.key(keyBuff);
-            keyBuff.rewind();
-            long key = Long.reverseBytes(keyBuff.getLong());
-            consumer.accept(key);
+            byte[] k = iter.key();
+            if (k != null && k.length == 8) {
+                long key = bytesToLongLE(k);
+                consumer.accept(swizzlePos(key));
+            }
             iter.next();
         }
         iter.close();
     }
 
+    private static byte[] longToBytesLE(long l) {
+        return new byte[] {
+                (byte) (l),
+                (byte) (l >>> 8),
+                (byte) (l >>> 16),
+                (byte) (l >>> 24),
+                (byte) (l >>> 32),
+                (byte) (l >>> 40),
+                (byte) (l >>> 48),
+                (byte) (l >>> 56)
+        };
+    }
+
+    private static long bytesToLongLE(byte[] b) {
+        return ((long) (b[0] & 0xFF)) |
+                (((long) (b[1] & 0xFF)) << 8) |
+                (((long) (b[2] & 0xFF)) << 16) |
+                (((long) (b[3] & 0xFF)) << 24) |
+                (((long) (b[4] & 0xFF)) << 32) |
+                (((long) (b[5] & 0xFF)) << 40) |
+                (((long) (b[6] & 0xFF)) << 48) |
+                (((long) (b[7] & 0xFF)) << 56);
+    }
+
+    private static final ThreadLocal<ByteBuffer> KEY_BUFFER = ThreadLocal.withInitial(() -> ByteBuffer.allocateDirect(8));
+
     @Override
     public MemoryBuffer getSectionData(long key, MemoryBuffer scratch) {
         try {
-            ByteBuffer buffer = ByteBuffer.allocateDirect(8);
-            buffer.putLong(Long.reverseBytes(swizzlePos(key)));
-            buffer.rewind();
+            ByteBuffer keyBuf = KEY_BUFFER.get();
+            keyBuf.clear();
+            keyBuf.putLong(Long.reverseBytes(swizzlePos(key)));
+            keyBuf.rewind();
 
             var result = this.db.get(this.worldSections,
                     this.sectionReadOps,
-                    buffer,
+                    keyBuf,
                     scratch.asByteBuffer());
 
             if (result == RocksDB.NOT_FOUND) {
@@ -152,14 +178,15 @@ public class RocksDBStorageBackend extends StorageBackend {
         }
     }
 
-    //TODO: FIXME, use the ByteBuffer variant
     @Override
     public void setSectionData(long key, MemoryBuffer data) {
         try {
-            ByteBuffer keyBuff = ByteBuffer.allocateDirect(8);
-            keyBuff.putLong(Long.reverseBytes(swizzlePos(key)));
-            keyBuff.rewind();
-            this.db.put(this.worldSections, this.sectionWriteOps, keyBuff, data.asByteBuffer());
+            ByteBuffer keyBuf = KEY_BUFFER.get();
+            keyBuf.clear();
+            keyBuf.putLong(Long.reverseBytes(swizzlePos(key)));
+            keyBuf.rewind();
+
+            this.db.put(this.worldSections, this.sectionWriteOps, keyBuf, data.asByteBuffer());
         } catch (RocksDBException e) {
             throw new RuntimeException(e);
         }
@@ -168,7 +195,7 @@ public class RocksDBStorageBackend extends StorageBackend {
     @Override
     public void deleteSectionData(long key) {
         try {
-            this.db.delete(this.worldSections, longToBytes(swizzlePos(key)));
+            this.db.delete(this.worldSections, longToBytesLE(swizzlePos(key)));
         } catch (RocksDBException e) {
             throw new RuntimeException(e);
         }

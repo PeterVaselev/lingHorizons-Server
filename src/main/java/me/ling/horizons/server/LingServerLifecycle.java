@@ -36,6 +36,9 @@ public class LingServerLifecycle {
     @SubscribeEvent
     public static void onServerStarted(ServerStartedEvent event) {
         me.ling.horizons.server.integration.ChunkyIntegration.onServerStarted(event.getServer());
+        if (me.ling.horizons.server.config.LingServerConfig.autoScanExistingWorldOnBoot) {
+            me.ling.horizons.server.importer.ServerWorldImporter.startImportAsync(event.getServer(), "all");
+        }
     }
 
     @SubscribeEvent
@@ -71,6 +74,7 @@ public class LingServerLifecycle {
     @SubscribeEvent
     public static void onServerStopping(ServerStoppingEvent event) {
         Logger.info("Server stopping initiated: halting Chunky and shutting down LING Horizons Master Engine...");
+        me.ling.horizons.server.importer.ServerWorldImporter.cancelImport();
         var server = event.getServer();
         if (server != null) {
             me.ling.horizons.server.integration.ChunkyIntegration.onServerStopping(server);
@@ -82,6 +86,7 @@ public class LingServerLifecycle {
     @SubscribeEvent
     public static void onServerStopped(ServerStoppedEvent event) {
         Logger.info("Stopping LING Horizons Master Server Engine (final cleanup)...");
+        me.ling.horizons.server.importer.ServerWorldImporter.cancelImport();
         me.ling.horizons.common.world.service.VoxelIngestService.setShuttingDown(true);
         LingCommon.shutdownInstance();
     }
