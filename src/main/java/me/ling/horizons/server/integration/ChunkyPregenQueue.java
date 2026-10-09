@@ -64,6 +64,10 @@ final class ChunkyPregenQueue {
                 pauseAllRunningTasks();
             } else {
                 // Logout events can arrive just before the player list is updated.
+                if (this.server.getPlayerCount() > 0) {
+                    this.resumePending = true;
+                    pauseAllRunningTasks();
+                }
                 CompletableFuture.delayedExecutor(1, TimeUnit.SECONDS).execute(() ->
                         this.server.execute(this::pump));
             }
