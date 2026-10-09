@@ -11,15 +11,19 @@ import me.ling.horizons.server.network.payload.LingLodDataPayload;
 import me.ling.horizons.server.network.payload.LingLodRequestPayload;
 import me.ling.horizons.common.util.UnsafeUtil;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.Level;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 /**
  * High-performance Asynchronous Server-to-Client LOD Streaming Service.
@@ -29,7 +33,35 @@ public class ServerLodStreamingService {
     private final LingServerInstance serverInstance;
     private final ExecutorService streamingExecutor;
 
-    private final ConcurrentHashMap<UUID, Future<?>> activeStreams = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<UUID, StreamState> playerStreams = new ConcurrentHashMap<>();
+
+    private static final class StreamState {
+        private final ResourceKey<Level> dimension;
+        private final Set<Long> sentSections = ConcurrentHashMap.newKeySet();
+        private final BandwidthLimiter bandwidth = new BandwidthLimiter();
+        private Future<?> task;
+        private LingLodRequestPayload request;
+        private long generation;
+
+        private StreamState(ResourceKey<Level> dimension) {
+            this.dimension = dimension;
+        }
+    }
+
+    /** Charges the complete serialized payload before it enters the network queue. */
+    static final class BandwidthLimiter {
+        private long nextSendNanos;
+
+        synchronized void await(int bytes, long bytesPerSecond) throws InterruptedException {
+            long now = System.nanoTime();
+            long duration = (bytes * 1_000_000_000L + bytesPerSecond - 1) / bytesPerSecond;
+            long deadline = Math.max(now, nextSendNanos) + duration;
+            while ((now = System.nanoTime()) < deadline) {
+                TimeUnit.NANOSECONDS.sleep(deadline - now);
+            }
+            nextSendNanos = deadline;
+        }
+    }
 
     public ServerLodStreamingService(LingServerInstance serverInstance) {
         this.serverInstance = serverInstance;
@@ -58,9 +90,11 @@ public class ServerLodStreamingService {
 
     public void onPlayerLeave(ServerPlayer player) {
         if (player != null) {
-            Future<?> oldTask = this.activeStreams.remove(player.getUUID());
-            if (oldTask != null) {
-                oldTask.cancel(true);
+            StreamState state = this.playerStreams.remove(player.getUUID());
+            if (state != null) {
+                synchronized (state) {
+                    if (state.task != null) state.task.cancel(true);
+                }
             }
         }
     }
@@ -73,7 +107,7 @@ public class ServerLodStreamingService {
     /**
      * Handles an asynchronous LOD chunk request from a client.
      * Implements Hierarchical Radial Streaming (Coarse Horizon First, Fine Detail Near-Player Second)
-     * with Token-Bucket Bandwidth Throttling.
+     * with per-player bandwidth throttling.
      */
     public void handleRequest(ServerPlayer player, LingLodRequestPayload request) {
         if (!LingServerConfig.streamingEnabled || player == null || player.level() == null) {
@@ -82,24 +116,41 @@ public class ServerLodStreamingService {
 
         UUID playerUUID = player.getUUID();
 
-        // Cancel previous streaming task if player moved or requested a new area (deduplication)
-        Future<?> oldTask = this.activeStreams.get(playerUUID);
-        if (oldTask != null && !oldTask.isDone()) {
-            oldTask.cancel(true);
+        StreamState state = this.playerStreams.compute(playerUUID, (id, existing) -> {
+            if (existing == null) return new StreamState(player.level().dimension());
+            if (existing.dimension.equals(player.level().dimension())) return existing;
+            synchronized (existing) {
+                if (existing.task != null) existing.task.cancel(true);
+            }
+            return new StreamState(player.level().dimension());
+        });
+        synchronized (state) {
+            if (state.task != null && !state.task.isDone()) {
+                if (request.equals(state.request)) return;
+                state.task.cancel(true);
+            }
+            state.request = request;
+            long generation = ++state.generation;
+            state.task = this.streamingExecutor.submit(() -> streamRequest(player, request, state, generation));
         }
+    }
 
-        Future<?> task = this.streamingExecutor.submit(() -> {
-            try {
+    private void streamRequest(ServerPlayer player, LingLodRequestPayload request, StreamState state, long generation) {
+        WorldEngine engine = null;
+        boolean engineHeld = false;
+        try {
                 if (Thread.currentThread().isInterrupted() || player.hasDisconnected()) {
                     return;
                 }
 
                 var level = player.serverLevel();
-                WorldEngine engine = WorldIdentifier.ofEngine(level);
+                engine = WorldIdentifier.ofEngine(level);
                 if (engine == null) {
                     Logger.warn("[LING LOD Streamer] Could not obtain WorldEngine for level " + level.dimension().location());
                     return;
                 }
+                engine.acquireRef();
+                engineHeld = true;
 
                 int maxRadius = Math.min(request.radiusChunks(), LingServerConfig.maxStreamingRadiusChunks);
                 int centerX = request.centerChunkX();
@@ -110,11 +161,6 @@ public class ServerLodStreamingService {
                 long streamStartTime = System.currentTimeMillis();
                 long totalStreamedBytes = 0;
                 int totalStreamedSections = 0;
-
-                // Token Bucket Rate Limiter settings (bytes per second)
-                long maxBytesPerSec = Math.max(10, LingServerConfig.maxBandwidthPerPlayerKB) * 1024L;
-                long bytesSentInWindow = 0;
-                long windowStartTime = System.currentTimeMillis();
 
                 // -------------------------------------------------------------
                 // 1. PHASE 1: Immediate Distant Horizon Delivery (Coarse LOD 4 & 3)
@@ -130,8 +176,7 @@ public class ServerLodStreamingService {
                         for (int secZ = minSecZ; secZ <= maxSecZ; secZ++) {
                             if (Thread.currentThread().isInterrupted() || player.hasDisconnected()) return;
 
-                            StreamResult res = streamColumnSections(engine, player, lod, secX, secZ);
-                            bytesSentInWindow += res.bytes();
+                            StreamResult res = streamColumnSections(engine, player, state, lod, secX, secZ);
                             totalStreamedBytes += res.bytes();
                             totalStreamedSections += res.sections();
                         }
@@ -169,29 +214,10 @@ public class ServerLodStreamingService {
                     for (Section2DPos pos : positions) {
                         if (Thread.currentThread().isInterrupted() || player.hasDisconnected()) return;
 
-                        StreamResult res = streamColumnSections(engine, player, lod, pos.secX, pos.secZ);
-                        bytesSentInWindow += res.bytes();
+                        StreamResult res = streamColumnSections(engine, player, state, lod, pos.secX, pos.secZ);
                         totalStreamedBytes += res.bytes();
                         totalStreamedSections += res.sections();
 
-                        // Token Bucket throttling (check every 50ms window)
-                        long now = System.currentTimeMillis();
-                        long elapsed = now - windowStartTime;
-                        if (elapsed >= 50) {
-                            long allowedBytes = (maxBytesPerSec * elapsed) / 1000L;
-                            if (bytesSentInWindow > allowedBytes) {
-                                long sleepMillis = ((bytesSentInWindow - allowedBytes) * 1000L) / maxBytesPerSec;
-                                if (sleepMillis > 0 && sleepMillis < 200) {
-                                    try {
-                                        Thread.sleep(sleepMillis);
-                                    } catch (InterruptedException e) {
-                                        return;
-                                    }
-                                }
-                            }
-                            bytesSentInWindow = 0;
-                            windowStartTime = System.currentTimeMillis();
-                        }
                     }
                 }
 
@@ -203,14 +229,16 @@ public class ServerLodStreamingService {
                     Logger.info("[LING LOD Streamer] Player " + player.getName().getString() + " requested LODs, but 0 sections were stored in RocksDB for this area.");
                 }
 
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
             } catch (Exception e) {
                 Logger.error("Error streaming LOD data to player " + player.getName().getString(), e);
             } finally {
-                this.activeStreams.remove(playerUUID);
+                if (engineHeld) engine.releaseRef();
+                synchronized (state) {
+                    if (state.generation == generation) state.task = null;
+                }
             }
-        });
-
-        this.activeStreams.put(playerUUID, task);
     }
 
     private record StreamResult(long bytes, int sections) {}
@@ -219,22 +247,22 @@ public class ServerLodStreamingService {
      * Streams vertical sections from Y=-2 to 10 for a given (lod, secX, secZ) column.
      * Returns total bytes and sections sent.
      */
-    private StreamResult streamColumnSections(WorldEngine engine, ServerPlayer player, int lod, int secX, int secZ) {
+    private StreamResult streamColumnSections(WorldEngine engine, ServerPlayer player, StreamState state, int lod, int secX, int secZ) throws InterruptedException {
         long totalBytes = 0;
         int totalSections = 0;
         for (int secY = -2; secY <= 10; secY++) {
+            if (Thread.currentThread().isInterrupted() || player.hasDisconnected()) break;
+            long key = WorldEngine.getWorldSectionId(lod, secX, secY, secZ);
+            if (state.sentSections.contains(key)) continue;
             WorldSection section = engine.acquireIfExists(lod, secX, secY, secZ);
             if (section != null) {
+                byte[] data = null;
                 try {
                     var mem = SaveLoadSystem3.serialize(section);
                     if (mem != null && mem.size > 0) {
                         try {
-                            byte[] data = new byte[(int) mem.size];
+                            data = new byte[(int) mem.size];
                             UnsafeUtil.memcpy(mem.address, (int) mem.size, data);
-                            long key = WorldEngine.getWorldSectionId(lod, secX, secY, secZ);
-                            player.connection.send(new LingLodDataPayload(key, lod, data));
-                            totalBytes += mem.size;
-                            totalSections++;
                         } finally {
                             mem.free();
                         }
@@ -242,16 +270,26 @@ public class ServerLodStreamingService {
                 } finally {
                     section.release();
                 }
+                if (data != null) {
+                    state.bandwidth.await(data.length, Math.max(10, LingServerConfig.maxBandwidthPerPlayerKB) * 1024L);
+                    if (Thread.currentThread().isInterrupted() || player.hasDisconnected()) break;
+                    player.connection.send(new LingLodDataPayload(key, lod, data));
+                    state.sentSections.add(key);
+                    totalBytes += data.length;
+                    totalSections++;
+                }
             }
         }
         return new StreamResult(totalBytes, totalSections);
     }
 
     public void shutdown() {
-        for (Future<?> task : this.activeStreams.values()) {
-            if (task != null) task.cancel(true);
+        for (StreamState state : this.playerStreams.values()) {
+            synchronized (state) {
+                if (state.task != null) state.task.cancel(true);
+            }
         }
-        this.activeStreams.clear();
+        this.playerStreams.clear();
         this.streamingExecutor.shutdownNow();
     }
 }
