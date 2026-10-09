@@ -135,7 +135,20 @@ autoStartCommands = [
     "chunky radius 3000",
     "chunky start"
 ]
+
+# Optional multi-dimension queue. When nonempty, this replaces autoStartCommands.
+# Exactly one Chunky task runs at a time; players and high load pause it.
+autoStartDimensions = ["minecraft:overworld", "minecraft:the_nether", "minecraft:the_end"]
+autoStartRadiusBlocks = 3000
 ```
+
+The queue requires `autoManageChunky = true`. It saves completed dimensions in
+`<world>/ling_horizons/chunky_pregen.properties` and continues unfinished Chunky
+tasks after a restart. Set Chunky's `continueOnRestart` to `false` so Chunky does
+not resume tasks before the player and load checks. A manual pause or task failure
+stops the queue until the next restart. The bridge pauses if heap use exceeds 80%
+or the server thread falls more than two seconds behind for three checks, then
+retries after load falls. Custom dimension IDs must match the world's registry ID.
 
 ---
 
