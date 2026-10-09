@@ -2,15 +2,15 @@ package me.ling.horizons.common.util;
 
 import sun.misc.Unsafe;
 
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
-import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 
 public class UnsafeUtil {
     public static final Unsafe UNSAFE;
-    private static final MethodHandle DIRECT_BYTE_BUFFER_CTOR;
+    private static final long BUFFER_ADDRESS_OFFSET;
+    private static final long BUFFER_CAPACITY_OFFSET;
+    private static final long BUFFER_LIMIT_OFFSET;
 
     static {
         try {
@@ -21,14 +21,13 @@ public class UnsafeUtil {
             throw new RuntimeException(e);
         }
 
-        MethodHandle ctorHandle = null;
         try {
-            Class<?> dbbClass = Class.forName("java.nio.DirectByteBuffer");
-            Constructor<?> ctor = dbbClass.getDeclaredConstructor(long.class, int.class);
-            ctor.setAccessible(true);
-            ctorHandle = MethodHandles.lookup().unreflectConstructor(ctor);
-        } catch (Throwable ignored) {}
-        DIRECT_BYTE_BUFFER_CTOR = ctorHandle;
+            BUFFER_ADDRESS_OFFSET = UNSAFE.objectFieldOffset(Buffer.class.getDeclaredField("address"));
+            BUFFER_CAPACITY_OFFSET = UNSAFE.objectFieldOffset(Buffer.class.getDeclaredField("capacity"));
+            BUFFER_LIMIT_OFFSET = UNSAFE.objectFieldOffset(Buffer.class.getDeclaredField("limit"));
+        } catch (NoSuchFieldException e) {
+            throw new ExceptionInInitializerError(e);
+        }
     }
 
     private static final long BYTE_ARRAY_BASE_OFFSET = UNSAFE.arrayBaseOffset(byte[].class);
@@ -79,12 +78,15 @@ public class UnsafeUtil {
     }
 
     public static ByteBuffer directByteBuffer(long address, int capacity) {
-        if (DIRECT_BYTE_BUFFER_CTOR != null) {
-            try {
-                return (ByteBuffer) DIRECT_BYTE_BUFFER_CTOR.invoke(address, capacity);
-            } catch (Throwable ignored) {}
+        if (address == 0 || capacity < 0) {
+            throw new IllegalArgumentException("Invalid native buffer address or capacity");
         }
-        ByteBuffer buf = ByteBuffer.allocateDirect(capacity);
+        // A slice has no cleaner of its own. Its zero-capacity parent owns only
+        // its original allocation, never the native memory managed by MemoryBuffer.
+        ByteBuffer buf = ByteBuffer.allocateDirect(0).slice();
+        UNSAFE.putLong(buf, BUFFER_ADDRESS_OFFSET, address);
+        UNSAFE.putInt(buf, BUFFER_CAPACITY_OFFSET, capacity);
+        UNSAFE.putInt(buf, BUFFER_LIMIT_OFFSET, capacity);
         return buf;
     }
 
