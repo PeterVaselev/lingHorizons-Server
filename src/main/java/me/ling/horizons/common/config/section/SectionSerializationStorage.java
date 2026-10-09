@@ -5,11 +5,13 @@ import me.ling.horizons.common.Logger;
 import me.ling.horizons.common.config.ConfigBuildCtx;
 import me.ling.horizons.common.config.storage.StorageBackend;
 import me.ling.horizons.common.config.storage.StorageConfig;
+import me.ling.horizons.common.util.MemoryBuffer;
 import me.ling.horizons.common.util.ThreadLocalMemoryBuffer;
 import me.ling.horizons.common.world.SaveLoadSystem;
 import me.ling.horizons.common.world.SaveLoadSystem3;
 import me.ling.horizons.common.world.WorldSection;
 import me.ling.horizons.common.world.other.Mapper;
+import net.jpountz.lz4.LZ4Exception;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
@@ -24,7 +26,15 @@ public class SectionSerializationStorage extends SectionStorage {
     private static final ThreadLocalMemoryBuffer MEMORY_CACHE = new ThreadLocalMemoryBuffer(SaveLoadSystem.BIGGEST_SERIALIZED_SECTION_SIZE + 1024);
 
     public int loadSection(WorldSection into) {
-        var data = this.backend.getSectionData(into.key, MEMORY_CACHE.get().createUntrackedUnfreeableReference());
+        MemoryBuffer data;
+        try {
+            data = this.backend.getSectionData(into.key, MEMORY_CACHE.get().createUntrackedUnfreeableReference());
+        } catch (IllegalArgumentException | LZ4Exception e) {
+            Logger.error("Section " + into.key + " has invalid compressed data, removing", e);
+            this.backend.deleteSectionData(into.key);
+            Arrays.fill(into._unsafeGetRawDataArray(), Mapper.AIR);
+            return -1;
+        }
         if (data != null) {
             if (!SaveLoadSystem3.deserialize(into, data)) {
                 this.backend.deleteSectionData(into.key);

@@ -11,9 +11,9 @@ public class LZ4Compressor implements StorageCompressor {
     private static final ThreadLocalMemoryBuffer SCRATCH = new ThreadLocalMemoryBuffer(SaveLoadSystem.BIGGEST_SERIALIZED_SECTION_SIZE + 1024);
 
     private final net.jpountz.lz4.LZ4Compressor compressor;
-    private final net.jpountz.lz4.LZ4FastDecompressor decompressor;
+    private final net.jpountz.lz4.LZ4SafeDecompressor decompressor;
     public LZ4Compressor() {
-        this.decompressor = LZ4Factory.fastestInstance().fastDecompressor();
+        this.decompressor = LZ4Factory.fastestInstance().safeDecompressor();
         this.compressor = LZ4Factory.fastestInstance().fastCompressor();
     }
 
@@ -28,8 +28,19 @@ public class LZ4Compressor implements StorageCompressor {
     @Override
     public MemoryBuffer decompress(MemoryBuffer saveData) {
         var res = SCRATCH.get().createUntrackedUnfreeableReference();
-        int size = this.decompressor.decompress(saveData.asByteBuffer(), 4, res.asByteBuffer(), 0, UnsafeUtil.getInt(saveData.address));
-        return res.subSize(size);
+        if (saveData.size < Integer.BYTES) {
+            throw new IllegalArgumentException("Truncated LZ4 section header");
+        }
+        int expectedSize = UnsafeUtil.getInt(saveData.address);
+        if (expectedSize <= 0 || expectedSize > res.size) {
+            throw new IllegalArgumentException("Invalid LZ4 section size: " + expectedSize);
+        }
+        int actualSize = this.decompressor.decompress(saveData.asByteBuffer(), 4, (int) saveData.size - 4,
+                res.asByteBuffer(), 0, expectedSize);
+        if (actualSize != expectedSize) {
+            throw new IllegalArgumentException("LZ4 section size mismatch: " + actualSize + " != " + expectedSize);
+        }
+        return res.subSize(actualSize);
     }
 
     @Override
