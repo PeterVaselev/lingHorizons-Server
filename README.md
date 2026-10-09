@@ -137,7 +137,21 @@ autoStartCommands = [
     "chunky radius 3000",
     "chunky start"
 ]
+
+# Optional safer multi-dimension queue. When nonempty, this replaces autoStartCommands.
+# Exactly one Chunky task runs at a time; players and high load pause it.
+# Each dimension starts only after the previous one has finished.
+autoStartDimensions = ["minecraft:overworld", "minecraft:the_nether", "minecraft:the_end"]
+autoStartRadiusBlocks = 3000
 ```
+
+The queue requires `autoManageChunky = true`. It saves completed dimensions in
+`<world>/ling_horizons/chunky_pregen.properties` and continues unfinished Chunky
+tasks after a restart. Set Chunky's `continueOnRestart` to `false` so Chunky does
+not resume tasks before the player and load checks. A manual pause or task failure
+stops the queue until the next restart. The bridge pauses if heap use exceeds 80%
+or the server thread falls more than two seconds behind for three checks, then
+retries after load falls. Custom dimension IDs must match the world's registry ID.
 
 ---
 
@@ -254,7 +268,7 @@ When the server receives a `/stop` command:
 | Installation Target | Mod File | Destination Directory | Core Responsibilities |
 | :--- | :--- | :--- | :--- |
 | 🖥️ **Client (Player)** | `lingHorizons-V1-1.0.1.jar` | Player's `.minecraft/mods/` | Renders 3D Voxel DAGs with Compute Shaders; renders horizon views up to 256 chunks with minimal GPU cost |
-| 🖧 **Dedicated Server** | `lingHorizons-Server-V1-1.0.3-pv1.jar` | Server's `mods/` directory | Chunky auto-bridge, RocksDB storage, hierarchical LOD packet compression, radial player streaming |
+| 🖧 **Dedicated Server** | `lingHorizons-Server-V1-1.0.3-pv2.jar` | Server's `mods/` directory | Chunky auto-bridge, RocksDB storage, hierarchical LOD packet compression, radial player streaming |
 
 > 💡 **Note**: Players who join without the client mod can play normally (Vanilla-friendly). Only players with the client mod will receive distant LOD streaming.
 
