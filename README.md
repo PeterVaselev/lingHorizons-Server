@@ -268,7 +268,7 @@ When the server receives a `/stop` command:
 | Installation Target | Mod File | Destination Directory | Core Responsibilities |
 | :--- | :--- | :--- | :--- |
 | 🖥️ **Client (Player)** | `lingHorizons-V1-1.0.1.jar` | Player's `.minecraft/mods/` | Renders 3D Voxel DAGs with Compute Shaders; renders horizon views up to 256 chunks with minimal GPU cost |
-| 🖧 **Dedicated Server** | `lingHorizons-Server-V1-1.0.3-pv2.jar` | Server's `mods/` directory | Chunky auto-bridge, RocksDB storage, hierarchical LOD packet compression, radial player streaming |
+| 🖧 **Dedicated Server** | `lingHorizons-Server-V1-1.0.3-pv3.jar` | Server's `mods/` directory | Chunky auto-bridge, RocksDB storage, hierarchical LOD packet compression, radial player streaming |
 
 > 💡 **Note**: Players who join without the client mod can play normally (Vanilla-friendly). Only players with the client mod will receive distant LOD streaming.
 
