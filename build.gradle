@@ -71,6 +71,15 @@ dependencies {
 
     // MixinExtras for NeoForge bytecode injection
     compileOnly 'io.github.llamalad7:mixinextras-common:0.4.1'
+
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    testImplementation 'org.lz4:lz4-java:1.8.0'
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+    classpath += configurations.runtimeClasspath
 }
 
 tasks.withType(JavaCompile).configureEach {
