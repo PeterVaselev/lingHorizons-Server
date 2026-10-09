@@ -9,6 +9,7 @@ import org.jetbrains.annotations.Nullable;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.util.Arrays;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.StampedLock;
 
@@ -32,6 +33,7 @@ public class ActiveSectionTracker {
         public volatile int preAcquireCount;
         public volatile int postAcquireCount;
         public volatile T obj;
+        public final CompletableFuture<T> loaded = new CompletableFuture<>();
     }
 
     private final AtomicInteger loadedSections = new AtomicInteger();
@@ -109,23 +111,30 @@ public class ActiveSectionTracker {
             }
         }
 
+        boolean counted = false;
+        try {
         if (isLoader) {
             this.loadedSections.incrementAndGet();
+            counted = true;
             long stamp2 = lock.readLock();
-            long stamp = this.lruLock.writeLock();
-            section = this.lruSecondaryCache.remove(key);
-
             WorldSection removal = null;
-            if (section == null && (!this.lruSecondaryCache.isEmpty()) && this.lruSize+100<this.lruSecondaryCache.size()+this.getLoadedCacheCount()) {//Add a self clamping lru case for when there are alot of loaded sections
-                removal = this.lruSecondaryCache.removeFirst();
+            try {
+                long stamp = this.lruLock.writeLock();
+                try {
+                    section = this.lruSecondaryCache.remove(key);
+                    if (section == null && (!this.lruSecondaryCache.isEmpty()) && this.lruSize+100<this.lruSecondaryCache.size()+this.getLoadedCacheCount()) {//Add a self clamping lru case for when there are alot of loaded sections
+                        removal = this.lruSecondaryCache.removeFirst();
+                    }
+                } finally {
+                    this.lruLock.unlockWrite(stamp);
+                }
+                if (section != null) {
+                    section.primeForReuse();
+                    section.acquire(1);
+                }
+            } finally {
+                lock.unlockRead(stamp2);
             }
-
-            this.lruLock.unlockWrite(stamp);
-            if (section != null) {
-                section.primeForReuse();
-                section.acquire(1);
-            }
-            lock.unlockRead(stamp2);
 
             if (removal != null) {
                 removal._releaseArray();
@@ -144,7 +153,14 @@ public class ActiveSectionTracker {
                         WorldEngine.getZ(key),
                         this);
 
-                status = this.loader.load(section);
+                try {
+                    status = this.loader.load(section);
+                } catch (RuntimeException e) {
+                    // A corrupt saved section must not leave the holder unpublished: every
+                    // other worker acquiring this key would otherwise wait indefinitely.
+                    Logger.error("Unable to load section " + section.key + ", setting to air", e);
+                    status = 1;
+                }
 
                 if (status < 0) {
                     //TODO: Instead if throwing an exception do something better, like attempting to regen
@@ -171,19 +187,16 @@ public class ActiveSectionTracker {
             VarHandle.storeStoreFence();//Do not reorder setting this object
             holder.obj = section;
             VarHandle.releaseFence();
+            holder.loaded.complete(section);
             if (nullOnEmpty && status == 1) {//If its air return null as stated, release the section aswell
                 section.release();
                 return null;
             }
             return section;
         } else {
-            //TODO: mark the time the loading started in nanos, then here if it has been a while, spin lock, else jump back to the executing service and do work
-            VarHandle.fullFence();
-            while ((section = holder.obj) == null) {
-                VarHandle.fullFence();
-                Thread.onSpinWait();
-                Thread.yield();
-            }
+            // Waiting on the future parks this worker instead of burning a core while
+            // another worker reads the section from storage.
+            section = holder.loaded.join();
 
             //Try to acquire a pre lock
             if (0<((int)VolatileHolder.POST_ACQUIRE_COUNT.getAndAdd(holder, -1))) {
@@ -201,6 +214,21 @@ public class ActiveSectionTracker {
                 //We failed everything, try get it again
                 return this.acquire(key, nullOnEmpty);
             }
+        }
+        } catch (RuntimeException | Error e) {
+            if (isLoader && !holder.loaded.isDone()) {
+                long stamp = lock.writeLock();
+                try {
+                    if (cache.get(key) == holder) {
+                        cache.remove(key);
+                        if (counted) this.loadedSections.decrementAndGet();
+                    }
+                } finally {
+                    lock.unlockWrite(stamp);
+                    holder.loaded.completeExceptionally(e);
+                }
+            }
+            throw e;
         }
     }
 
