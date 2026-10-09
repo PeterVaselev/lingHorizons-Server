@@ -102,7 +102,27 @@ public class ServerLodStreamingService {
     /**
      * Helper record representing a 2D section position with its distance squared to player center.
      */
-    private record Section2DPos(int secX, int secZ, long distSq) {}
+    record Section2DPos(int secX, int secZ, long distSq) {}
+
+    static List<Section2DPos> orderedColumns(int centerX, int centerZ, int radius, int lod) {
+        int minSecX = (centerX - radius) >> (1 + lod);
+        int maxSecX = (centerX + radius) >> (1 + lod);
+        int minSecZ = (centerZ - radius) >> (1 + lod);
+        int maxSecZ = (centerZ + radius) >> (1 + lod);
+        int centerSecX = centerX >> (1 + lod);
+        int centerSecZ = centerZ >> (1 + lod);
+
+        List<Section2DPos> positions = new ArrayList<>();
+        for (int secX = minSecX; secX <= maxSecX; secX++) {
+            for (int secZ = minSecZ; secZ <= maxSecZ; secZ++) {
+                long dx = secX - centerSecX;
+                long dz = secZ - centerSecZ;
+                positions.add(new Section2DPos(secX, secZ, dx * dx + dz * dz));
+            }
+        }
+        positions.sort(Comparator.comparingLong(Section2DPos::distSq));
+        return positions;
+    }
 
     /**
      * Handles an asynchronous LOD chunk request from a client.
@@ -164,22 +184,16 @@ public class ServerLodStreamingService {
 
                 // -------------------------------------------------------------
                 // 1. PHASE 1: Immediate Distant Horizon Delivery (Coarse LOD 4 & 3)
-                // Ensures player sees mountains and full horizon instantly (0 visual void holes)
+                // Send the player's own columns first so the visible horizon fills
+                // before the bandwidth limit is spent on the far edge of the area.
                 // -------------------------------------------------------------
                 for (int lod = maxLOD; lod >= Math.max(3, minLOD); lod--) {
-                    int minSecX = (centerX - maxRadius) >> (1 + lod);
-                    int maxSecX = (centerX + maxRadius) >> (1 + lod);
-                    int minSecZ = (centerZ - maxRadius) >> (1 + lod);
-                    int maxSecZ = (centerZ + maxRadius) >> (1 + lod);
+                    for (Section2DPos pos : orderedColumns(centerX, centerZ, maxRadius, lod)) {
+                        if (Thread.currentThread().isInterrupted() || player.hasDisconnected()) return;
 
-                    for (int secX = minSecX; secX <= maxSecX; secX++) {
-                        for (int secZ = minSecZ; secZ <= maxSecZ; secZ++) {
-                            if (Thread.currentThread().isInterrupted() || player.hasDisconnected()) return;
-
-                            StreamResult res = streamColumnSections(engine, player, state, lod, secX, secZ);
-                            totalStreamedBytes += res.bytes();
-                            totalStreamedSections += res.sections();
-                        }
+                        StreamResult res = streamColumnSections(engine, player, state, lod, pos.secX, pos.secZ);
+                        totalStreamedBytes += res.bytes();
+                        totalStreamedSections += res.sections();
                     }
                 }
 
@@ -189,29 +203,7 @@ public class ServerLodStreamingService {
                 // -------------------------------------------------------------
                 for (int lod = Math.min(2, maxLOD); lod >= minLOD; lod--) {
                     if (Thread.currentThread().isInterrupted() || player.hasDisconnected()) return;
-
-                    int minSecX = (centerX - maxRadius) >> (1 + lod);
-                    int maxSecX = (centerX + maxRadius) >> (1 + lod);
-                    int minSecZ = (centerZ - maxRadius) >> (1 + lod);
-                    int maxSecZ = (centerZ + maxRadius) >> (1 + lod);
-
-                    int centerSecX = centerX >> (1 + lod);
-                    int centerSecZ = centerZ >> (1 + lod);
-
-                    List<Section2DPos> positions = new ArrayList<>();
-                    for (int secX = minSecX; secX <= maxSecX; secX++) {
-                        for (int secZ = minSecZ; secZ <= maxSecZ; secZ++) {
-                            long dx = secX - centerSecX;
-                            long dz = secZ - centerSecZ;
-                            long distSq = dx * dx + dz * dz;
-                            positions.add(new Section2DPos(secX, secZ, distSq));
-                        }
-                    }
-
-                    // Sort closest to player center first
-                    positions.sort(Comparator.comparingLong(Section2DPos::distSq));
-
-                    for (Section2DPos pos : positions) {
+                    for (Section2DPos pos : orderedColumns(centerX, centerZ, maxRadius, lod)) {
                         if (Thread.currentThread().isInterrupted() || player.hasDisconnected()) return;
 
                         StreamResult res = streamColumnSections(engine, player, state, lod, pos.secX, pos.secZ);
