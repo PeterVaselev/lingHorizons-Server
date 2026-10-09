@@ -9,6 +9,8 @@ import net.neoforged.fml.ModList;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Built-in Chunky Auto-Bridge for LING Horizons Server.
@@ -87,7 +89,7 @@ public class ChunkyIntegration {
             // 0 players online -> Resume Chunky to pregenerate chunks & build LODs in background
             if (isPausedByBridge) {
                 isPausedByBridge = false;
-                resumeChunky(server);
+                CompletableFuture.delayedExecutor(1, TimeUnit.SECONDS).execute(() -> resumeChunky(server));
             }
         }
     }
@@ -122,6 +124,7 @@ public class ChunkyIntegration {
 
                 server.execute(() -> {
                     try {
+                        if (!server.isRunning() || server.getPlayerCount() > 0) return;
                         CommandSourceStack source = server.createCommandSourceStack();
 
                         // 🔍 Smart Auto-Detection: Resume existing uncompleted Chunky tasks without prompting
@@ -166,6 +169,7 @@ public class ChunkyIntegration {
         if (server == null) return;
         server.execute(() -> {
             try {
+                if (server.getPlayerCount() == 0) return;
                 if (!LingServerConfig.silentChunkyBridgeLogs) {
                     Logger.info("[Chunky Auto-Bridge] Players detected online -> Pausing Chunky generation for maximum gameplay TPS");
                 }
@@ -178,17 +182,18 @@ public class ChunkyIntegration {
     }
 
     /**
-     * Dispatches "chunky resume" on the server thread.
+     * Dispatches "chunky continue" on the server thread.
      */
     public static void resumeChunky(MinecraftServer server) {
         if (server == null) return;
         server.execute(() -> {
             try {
+                if (!server.isRunning() || server.getPlayerCount() > 0) return;
                 if (!LingServerConfig.silentChunkyBridgeLogs) {
                     Logger.info("[Chunky Auto-Bridge] Server is idle (0 players) -> Resuming Chunky background generation & LOD processing");
                 }
                 CommandSourceStack source = server.createCommandSourceStack();
-                server.getCommands().performPrefixedCommand(source, "chunky resume");
+                server.getCommands().performPrefixedCommand(source, "chunky continue");
             } catch (Exception e) {
                 Logger.error("Failed to resume Chunky via Auto-Bridge", e);
             }
