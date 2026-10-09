@@ -75,6 +75,14 @@ public class LingServerConfig {
                     "chunky start"
             ), o -> o instanceof String);
 
+    private static final ModConfigSpec.ConfigValue<List<? extends String>> AUTO_START_DIMENSIONS = BUILDER
+            .comment("Optional ordered list of dimension IDs for one-at-a-time Chunky pregeneration. Empty keeps the legacy autoStartCommands sequence.")
+            .defineList("autoStartDimensions", List.of(), o -> o instanceof String);
+
+    private static final ModConfigSpec.IntValue AUTO_START_RADIUS_BLOCKS = BUILDER
+            .comment("Circle radius in blocks for each autoStartDimensions task")
+            .defineInRange("autoStartRadiusBlocks", 3000, 128, 50000);
+
     public static final ModConfigSpec SPEC = BUILDER.build();
 
     // Cached values for fast access
@@ -96,6 +104,8 @@ public class LingServerConfig {
             "chunky radius 3000",
             "chunky start"
     ));
+    public static List<String> autoStartDimensions = new ArrayList<>();
+    public static int autoStartRadiusBlocks = 3000;
 
     public static void register(ModContainer container) {
         container.registerConfig(ModConfig.Type.SERVER, SPEC, "ling_horizons-server.toml");
@@ -117,6 +127,8 @@ public class LingServerConfig {
             autoScanExistingWorldOnBoot = AUTO_SCAN_EXISTING_WORLD_ON_BOOT.get();
             autoStartDelaySeconds = AUTO_START_DELAY_SECONDS.get();
             autoStartCommands = new ArrayList<>(AUTO_START_COMMANDS.get());
+            autoStartDimensions = new ArrayList<>(AUTO_START_DIMENSIONS.get());
+            autoStartRadiusBlocks = AUTO_START_RADIUS_BLOCKS.get();
         }
     }
 }

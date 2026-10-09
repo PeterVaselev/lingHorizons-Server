@@ -72,6 +72,10 @@ dependencies {
     // MixinExtras for NeoForge bytecode injection
     compileOnly 'io.github.llamalad7:mixinextras-common:0.4.1'
 
+    // Optional server integration; Chunky is supplied by the server modpack.
+    compileOnly 'maven.modrinth:fALzjamp:LuFhm4eU'
+    testImplementation 'maven.modrinth:fALzjamp:LuFhm4eU'
+
     testImplementation 'org.junit.jupiter:junit-jupiter:5.11.4'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testImplementation 'org.lz4:lz4-java:1.8.0'

@@ -21,6 +21,7 @@ public class ChunkyIntegration {
 
     private static Boolean chunkyLoaded = null;
     private static volatile boolean isPausedByBridge = false;
+    private static ChunkyPregenQueue pregenQueue;
 
     public static boolean isChunkyLoaded() {
         if (chunkyLoaded == null) {
@@ -79,6 +80,11 @@ public class ChunkyIntegration {
             return;
         }
 
+        if (pregenQueue != null) {
+            pregenQueue.onPlayerCountChanged(newPlayerCount);
+            return;
+        }
+
         if (newPlayerCount > 0) {
             // Players are online -> Pause Chunky to ensure 100% smooth TPS
             if (!isPausedByBridge) {
@@ -103,6 +109,21 @@ public class ChunkyIntegration {
         }
 
         if (!LingServerConfig.autoStartChunkyOnBoot) {
+            return;
+        }
+
+        if (!LingServerConfig.autoStartDimensions.isEmpty()) {
+            if (!LingServerConfig.autoManageChunky) {
+                Logger.error("[Chunky Auto-Bridge] autoStartDimensions requires autoManageChunky=true; pregeneration disabled");
+                return;
+            }
+            try {
+                pregenQueue = new ChunkyPregenQueue(server, LingServerConfig.autoStartDimensions,
+                        LingServerConfig.autoStartRadiusBlocks);
+                pregenQueue.startAfterDelay(Math.max(1, LingServerConfig.autoStartDelaySeconds));
+            } catch (Exception e) {
+                Logger.error("Failed to initialize Chunky pregeneration queue", e);
+            }
             return;
         }
 
@@ -205,6 +226,10 @@ public class ChunkyIntegration {
      */
     public static void onServerStopping(MinecraftServer server) {
         if (!isChunkyLoaded() || server == null) return;
+        if (pregenQueue != null) {
+            pregenQueue.close();
+            pregenQueue = null;
+        }
         try {
             Logger.info("[Chunky Auto-Bridge] Halting Chunky generation before server saves worlds...");
             CommandSourceStack source = server.createCommandSourceStack();
