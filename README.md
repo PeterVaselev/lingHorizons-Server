@@ -1,6 +1,8 @@
 # LING Horizons Server (The Ultimate LOD Streaming Engine)
 ### Dedicated Server Voxel LOD Streaming & Intelligent Chunky Auto-Bridge for NeoForge 1.21.1
 
+> This is a community fork of [LING Horizons Server by LING](https://github.com/ling-gwdgw2/lingHorizons-Server), licensed under CC BY 4.0. Version `1.0.3-pv1` fixes Java 21 native buffer access, rejects corrupt stored LOD sections, and prevents section workers from spinning after a load failure. The fixes are proposed upstream in [PR #1](https://github.com/ling-gwdgw2/lingHorizons-Server/pull/1). The client/server network protocol remains version 1.
+
 ![LING Horizons Server](logo2.png)
 
 ---
@@ -55,7 +57,7 @@
 | **CPU** | 4 Cores / 8 Threads | 6+ Cores / 12+ Threads |
 | **Dedicated RAM** | 6 GB - 8 GB | 10 GB - 16 GB+ (for large modpacks) |
 | **Storage (Disk)** | SSD / NVMe (20–50 GB free space) | High-Speed NVMe M.2 SSD |
-| **Required Server Mod**| `lingHorizons-Server-V1-1.0.0.jar` | `lingHorizons-Server-V1-1.0.0.jar` |
+| **Required Server Mod**| `lingHorizons-Server-V1-1.0.3-pv1.jar` | `lingHorizons-Server-V1-1.0.3-pv1.jar` |
 | **Recommended Mod** | `Chunky` (NeoForge 1.21.1) | `Chunky` (NeoForge 1.21.1) |
 
 ---
@@ -65,7 +67,7 @@
 Follow these steps **before starting your server for the first time**:
 
 ### Step 1: Install Mod Files onto the Server
-1. Download or copy **`lingHorizons-Server-V1-1.0.0.jar`** into your dedicated server's `mods/` directory.
+1. Download or copy **`lingHorizons-Server-V1-1.0.3-pv1.jar`** into your dedicated server's `mods/` directory.
 2. Place the **`Chunky`** mod (NeoForge 1.21.1 version) into the `mods/` directory to enable automated pre-generation.
 > ⚠️ **Important**: Do **not** install client-only mods (e.g., shaders, visual HUD mods, client-side Voxy) into the server `mods/` folder.
 
@@ -252,7 +254,7 @@ When the server receives a `/stop` command:
 | Installation Target | Mod File | Destination Directory | Core Responsibilities |
 | :--- | :--- | :--- | :--- |
 | 🖥️ **Client (Player)** | `lingHorizons-V1-1.0.1.jar` | Player's `.minecraft/mods/` | Renders 3D Voxel DAGs with Compute Shaders; renders horizon views up to 256 chunks with minimal GPU cost |
-| 🖧 **Dedicated Server** | `lingHorizons-Server-V1-1.0.0.jar` | Server's `mods/` directory | Chunky auto-bridge, RocksDB storage, hierarchical LOD packet compression, radial player streaming |
+| 🖧 **Dedicated Server** | `lingHorizons-Server-V1-1.0.3-pv1.jar` | Server's `mods/` directory | Chunky auto-bridge, RocksDB storage, hierarchical LOD packet compression, radial player streaming |
 
 > 💡 **Note**: Players who join without the client mod can play normally (Vanilla-friendly). Only players with the client mod will receive distant LOD streaming.
 
