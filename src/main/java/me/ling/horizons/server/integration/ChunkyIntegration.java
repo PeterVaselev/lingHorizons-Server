@@ -227,8 +227,9 @@ public class ChunkyIntegration {
     public static void onServerStopping(MinecraftServer server) {
         if (!isChunkyLoaded() || server == null) return;
         if (pregenQueue != null) {
-            pregenQueue.close();
+            pregenQueue.closeAndPause();
             pregenQueue = null;
+            return;
         }
         try {
             Logger.info("[Chunky Auto-Bridge] Halting Chunky generation before server saves worlds...");

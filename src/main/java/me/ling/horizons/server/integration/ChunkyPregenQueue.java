@@ -70,8 +70,9 @@ final class ChunkyPregenQueue {
         });
     }
 
-    void close() {
+    void closeAndPause() {
         this.closed = true;
+        pauseAllRunningTasks();
         this.chunky.getEventBus().unsubscribe(GenerationTaskFinishEvent.class, this.finishListener);
     }
 
